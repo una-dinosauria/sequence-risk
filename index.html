@@ -1,0 +1,1910 @@
+<title>Sequence Risk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;450;500;600&display=swap">
+<style>
+:root{
+  color-scheme: light;
+  --plane:#E8ECEC;
+  --surface:#FAFBFB;
+  --surface-2:#F1F4F5;
+  --sunken:#E1E7E8;
+  --ink:#0E1214;
+  --ink-2:#4C575B;
+  --muted:#7B858A;
+  --hair:rgba(14,18,20,.11);
+  --hair-2:rgba(14,18,20,.20);
+  --grid:#DEE3E4;
+  --axis:#BFC7C9;
+  --accent:#1C5CAB;
+  --accent-2:#2A78D6;
+  --accent-wash:rgba(42,120,214,.10);
+  --fan:42,120,214;
+  --fan-line:#123F79;
+  --good:#0CA30C; --good-ink:#046004;
+  --warn:#FAB219; --warn-ink:#7E5200;
+  --crit:#D03B3B; --crit-ink:#A02525;
+  --c1:#2A78D6; --c2:#EB6834; --c3:#1BAF7A;
+  --shadow:0 1px 1px rgba(14,18,20,.04), 0 10px 30px -20px rgba(14,18,20,.45);
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --plane:#0A0C0D;
+    --surface:#15191A;
+    --surface-2:#1C2123;
+    --sunken:#0F1314;
+    --ink:#F1F4F5;
+    --ink-2:#AEB8BC;
+    --muted:#828C90;
+    --hair:rgba(255,255,255,.11);
+    --hair-2:rgba(255,255,255,.20);
+    --grid:#242A2C;
+    --axis:#333B3D;
+    --accent:#5598E7;
+    --accent-2:#3987E5;
+    --accent-wash:rgba(85,152,231,.13);
+    --fan:85,152,231;
+    --fan-line:#B7D3F6;
+    --good:#0CA30C; --good-ink:#3FCB3F;
+    --warn:#FAB219; --warn-ink:#FAB219;
+    --crit:#E66767; --crit-ink:#E66767;
+    --c1:#3987E5; --c2:#D95926; --c3:#199E70;
+    --shadow:0 1px 1px rgba(0,0,0,.4), 0 12px 34px -22px rgba(0,0,0,.9);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --plane:#0A0C0D;
+  --surface:#15191A;
+  --surface-2:#1C2123;
+  --sunken:#0F1314;
+  --ink:#F1F4F5;
+  --ink-2:#AEB8BC;
+  --muted:#828C90;
+  --hair:rgba(255,255,255,.11);
+  --hair-2:rgba(255,255,255,.20);
+  --grid:#242A2C;
+  --axis:#333B3D;
+  --accent:#5598E7;
+  --accent-2:#3987E5;
+  --accent-wash:rgba(85,152,231,.13);
+  --fan:85,152,231;
+  --fan-line:#B7D3F6;
+  --good:#0CA30C; --good-ink:#3FCB3F;
+  --warn:#FAB219; --warn-ink:#FAB219;
+  --crit:#E66767; --crit-ink:#E66767;
+  --c1:#3987E5; --c2:#D95926; --c3:#199E70;
+  --shadow:0 1px 1px rgba(0,0,0,.4), 0 12px 34px -22px rgba(0,0,0,.9);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--plane);
+  color:var(--ink);
+  font-family:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  font-size:14px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+.num{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;font-variant-numeric:tabular-nums}
+h1,h2,h3{margin:0;text-wrap:balance}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent-2);outline-offset:2px;border-radius:4px}
+
+/* ---------- shell ---------- */
+.app{max-width:1560px;margin:0 auto;padding:0 20px 64px}
+
+.topbar{
+  display:flex;align-items:baseline;gap:18px;flex-wrap:wrap;
+  padding:26px 0 18px;border-bottom:1px solid var(--hair);margin-bottom:22px;
+}
+.wordmark{
+  font-family:Fraunces,Georgia,serif;font-weight:700;font-size:25px;letter-spacing:-.02em;
+  font-variation-settings:"SOFT" 0,"WONK" 1;
+}
+.wordmark span{color:var(--accent)}
+.tagline{color:var(--muted);font-size:13px;max-width:46ch}
+.topbar .spacer{flex:1 1 auto}
+.runmeta{
+  font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted);
+  letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;
+}
+
+.layout{display:grid;grid-template-columns:352px minmax(0,1fr);gap:22px;align-items:start}
+@media (max-width:1080px){ .layout{grid-template-columns:1fr} }
+
+/* ---------- control rail ---------- */
+.rail{
+  position:sticky;top:16px;max-height:calc(100vh - 32px);overflow-y:auto;overscroll-behavior:contain;
+  background:var(--surface);border:1px solid var(--hair);border-radius:var(--r);box-shadow:var(--shadow);
+  scrollbar-width:thin;
+}
+@media (max-width:1080px){ .rail{position:static;max-height:none} }
+.rail::-webkit-scrollbar{width:10px}
+.rail::-webkit-scrollbar-thumb{background:var(--hair-2);border-radius:6px;border:3px solid var(--surface)}
+
+.presets{padding:14px 16px 12px;border-bottom:1px solid var(--hair)}
+.eyebrow{
+  font-size:10.5px;font-weight:600;letter-spacing:.11em;text-transform:uppercase;color:var(--muted);
+  margin:0 0 9px;
+}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{
+  border:1px solid var(--hair-2);background:var(--surface-2);border-radius:100px;
+  padding:5px 11px;font-size:12px;font-weight:500;cursor:pointer;transition:background .12s,border-color .12s,color .12s;
+}
+.chip:hover{border-color:var(--accent-2);color:var(--accent)}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+
+.grp{border-bottom:1px solid var(--hair)}
+.grp>summary{
+  list-style:none;cursor:pointer;padding:12px 16px;display:flex;align-items:center;gap:9px;
+  font-size:12px;font-weight:600;letter-spacing:.055em;text-transform:uppercase;color:var(--ink-2);
+  user-select:none;
+}
+.grp>summary::-webkit-details-marker{display:none}
+.grp>summary:hover{color:var(--ink);background:var(--surface-2)}
+.grp>summary .caret{
+  width:7px;height:7px;border-right:1.6px solid var(--muted);border-bottom:1.6px solid var(--muted);
+  transform:rotate(-45deg);transition:transform .16s;flex:none;margin-left:-1px;
+}
+.grp[open]>summary .caret{transform:rotate(45deg)}
+.grp>summary .sum{margin-left:auto;font-family:"IBM Plex Mono",monospace;font-size:11px;
+  font-weight:400;letter-spacing:0;text-transform:none;color:var(--muted)}
+.grp-body{padding:4px 16px 16px;display:flex;flex-direction:column;gap:13px}
+
+.field{display:flex;flex-direction:column;gap:5px}
+.field-top{display:flex;align-items:baseline;gap:8px}
+.field-top label{font-size:12.5px;color:var(--ink-2);flex:1 1 auto}
+.field-top .hint{color:var(--muted);font-size:11px}
+.field input[type="number"]{
+  width:98px;text-align:right;padding:3px 7px;border:1px solid var(--hair-2);border-radius:6px;
+  background:var(--surface-2);color:var(--ink);
+  font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;font-size:12.5px;font-weight:500;
+  -moz-appearance:textfield;
+}
+.field input[type="number"]::-webkit-outer-spin-button,
+.field input[type="number"]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.field input[type="number"]:focus{border-color:var(--accent-2);background:var(--surface)}
+
+input[type="range"]{
+  -webkit-appearance:none;appearance:none;width:100%;height:16px;background:transparent;margin:0;cursor:grab;
+}
+input[type="range"]:active{cursor:grabbing}
+input[type="range"]::-webkit-slider-runnable-track{height:4px;border-radius:3px;background:var(--sunken)}
+input[type="range"]::-moz-range-track{height:4px;border-radius:3px;background:var(--sunken)}
+input[type="range"]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--accent);
+  border:2px solid var(--surface);box-shadow:0 0 0 1px var(--hair-2);margin-top:-5px;
+}
+input[type="range"]::-moz-range-thumb{
+  width:14px;height:14px;border-radius:50%;background:var(--accent);
+  border:2px solid var(--surface);box-shadow:0 0 0 1px var(--hair-2);
+}
+input[type="range"]:hover::-webkit-slider-thumb{background:var(--accent-2)}
+input[type="range"]:hover::-moz-range-thumb{background:var(--accent-2)}
+
+.toggle{display:flex;align-items:center;gap:9px;cursor:pointer;font-size:12.5px;color:var(--ink-2)}
+.toggle input{
+  appearance:none;-webkit-appearance:none;width:32px;height:18px;border-radius:100px;flex:none;
+  background:var(--sunken);border:1px solid var(--hair-2);position:relative;cursor:pointer;transition:background .15s;
+}
+.toggle input::after{
+  content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;
+  background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,.3);transition:transform .15s;
+}
+.toggle input:checked{background:var(--accent);border-color:var(--accent)}
+.toggle input:checked::after{transform:translateX(14px)}
+
+.seg{display:flex;gap:0;border:1px solid var(--hair-2);border-radius:7px;overflow:hidden;background:var(--surface-2)}
+.seg button{
+  flex:1 1 0;border:0;background:transparent;padding:5px 4px;font-size:12px;cursor:pointer;color:var(--ink-2);
+  border-right:1px solid var(--hair);transition:background .12s,color .12s;
+}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--accent);color:#fff;font-weight:500}
+.seg button:not([aria-pressed="true"]):hover{background:var(--sunken);color:var(--ink)}
+
+.railfoot{padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+.sharebox{
+  width:100%;padding:6px 8px;border:1px solid var(--hair-2);border-radius:7px;
+  background:var(--surface-2);color:var(--ink-2);
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;
+}
+.cashflow{
+  margin:0 16px 16px;padding:11px 12px;background:var(--surface-2);border:1px solid var(--hair);border-radius:8px;
+  display:flex;flex-direction:column;gap:5px;
+}
+.cfrow{display:flex;align-items:baseline;gap:8px;font-size:12px}
+.cfrow .k{color:var(--ink-2)}
+.cfrow .v{margin-left:auto;font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;font-weight:500}
+.cfrow.total{border-top:1px solid var(--hair);padding-top:6px;margin-top:1px}
+.cfrow.total .k{color:var(--ink);font-weight:500}
+
+/* events */
+.events{display:flex;flex-direction:column;gap:7px}
+.ev{
+  display:grid;grid-template-columns:auto 1fr;gap:6px 8px;align-items:center;
+  padding:8px 9px;border:1px solid var(--hair);border-radius:8px;background:var(--surface-2);
+}
+.ev.off{opacity:.5}
+.ev-name{font-size:12.5px;font-weight:500}
+.ev-sub{grid-column:2;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.ev-sub input[type="number"]{
+  width:78px;padding:2px 6px;font-size:11.5px;text-align:right;border:1px solid var(--hair-2);
+  border-radius:5px;background:var(--surface);color:var(--ink);
+  font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;-moz-appearance:textfield;
+}
+.ev-sub input[type="number"]::-webkit-outer-spin-button,
+.ev-sub input[type="number"]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.ev-sub .lb{font-size:10.5px;color:var(--muted);letter-spacing:.03em}
+.ev-check{appearance:none;-webkit-appearance:none;width:15px;height:15px;border-radius:4px;
+  border:1.5px solid var(--hair-2);background:var(--surface);cursor:pointer;position:relative;flex:none}
+.ev-check:checked{background:var(--accent);border-color:var(--accent)}
+.ev-check:checked::after{content:"";position:absolute;left:4px;top:1px;width:4px;height:8px;
+  border:solid #fff;border-width:0 2px 2px 0;transform:rotate(42deg)}
+.ev-flow{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.ev-flow.in{color:var(--good-ink)}
+.btn-ghost{
+  border:1px dashed var(--hair-2);background:transparent;border-radius:8px;padding:7px;
+  font-size:12px;color:var(--ink-2);cursor:pointer;width:100%;transition:border-color .12s,color .12s;
+}
+.btn-ghost:hover{border-color:var(--accent-2);color:var(--accent)}
+.ev-del{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:15px;line-height:1;padding:0 2px}
+.ev-del:hover{color:var(--crit)}
+
+/* ---------- results ---------- */
+.results{display:flex;flex-direction:column;gap:18px;min-width:0}
+.card{
+  background:var(--surface);border:1px solid var(--hair);border-radius:var(--r);box-shadow:var(--shadow);
+  padding:20px 22px;
+}
+.card-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:4px}
+.card-title{font-size:12px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-2)}
+.card-sub{font-size:12.5px;color:var(--muted);flex:1 1 240px}
+.card-tools{margin-left:auto;display:flex;gap:6px;align-items:center}
+.mini-seg{display:flex;border:1px solid var(--hair-2);border-radius:6px;overflow:hidden}
+.mini-seg button{border:0;background:var(--surface-2);padding:3px 9px;font-size:11px;cursor:pointer;
+  color:var(--ink-2);border-right:1px solid var(--hair)}
+.mini-seg button:last-child{border-right:0}
+.mini-seg button[aria-pressed="true"]{background:var(--accent);color:#fff}
+
+/* verdict */
+.verdict{display:grid;grid-template-columns:minmax(230px,300px) minmax(0,1fr);gap:26px;align-items:center}
+@media (max-width:720px){ .verdict{grid-template-columns:1fr;gap:16px} }
+.hero{display:flex;flex-direction:column;gap:2px}
+.hero .k{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.hero .v{
+  font-family:"IBM Plex Mono",monospace;font-size:66px;font-weight:500;line-height:1;letter-spacing:-.035em;
+}
+.hero .meter{height:6px;border-radius:4px;background:var(--sunken);overflow:hidden;margin-top:10px}
+.hero .meter i{display:block;height:100%;border-radius:4px;background:var(--good);transition:width .35s ease}
+.hero .cap{font-size:11.5px;color:var(--muted);margin-top:7px}
+.verdict-note{font-family:Fraunces,Georgia,serif;font-size:19px;line-height:1.42;font-weight:400;
+  font-variation-settings:"SOFT" 0,"WONK" 0;color:var(--ink);text-wrap:pretty}
+.verdict-note b{font-weight:600;font-variant-numeric:tabular-nums}
+.pill{
+  display:inline-flex;align-items:center;gap:6px;border-radius:100px;padding:3px 11px 3px 9px;
+  font-size:11.5px;font-weight:500;letter-spacing:.02em;border:1px solid;
+}
+.pill .dot{width:7px;height:7px;border-radius:50%;flex:none}
+.pill.ok{color:var(--good-ink);border-color:color-mix(in srgb,var(--good) 40%,transparent);background:color-mix(in srgb,var(--good) 10%,transparent)}
+.pill.ok .dot{background:var(--good)}
+.pill.warn{color:var(--warn-ink);border-color:color-mix(in srgb,var(--warn) 50%,transparent);background:color-mix(in srgb,var(--warn) 14%,transparent)}
+.pill.warn .dot{background:var(--warn)}
+.pill.bad{color:var(--crit-ink);border-color:color-mix(in srgb,var(--crit) 42%,transparent);background:color-mix(in srgb,var(--crit) 10%,transparent)}
+.pill.bad .dot{background:var(--crit)}
+
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:1px;background:var(--hair);
+  border:1px solid var(--hair);border-radius:var(--r);overflow:hidden}
+.tile{background:var(--surface);padding:14px 16px 15px;display:flex;flex-direction:column;gap:3px}
+.tile .k{font-size:11px;font-weight:500;letter-spacing:.05em;color:var(--muted);text-transform:uppercase}
+.tile .v{font-family:"IBM Plex Mono",monospace;font-size:23px;font-weight:500;letter-spacing:-.02em;line-height:1.15}
+.tile .s{font-size:11.5px;color:var(--ink-2)}
+
+.chartwrap{position:relative;margin-top:10px}
+.chartwrap svg{display:block;width:100%;height:auto}
+.legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:12px;font-size:11.5px;color:var(--ink-2);align-items:center}
+.legend .it{display:flex;align-items:center;gap:6px}
+.legend .sw{width:14px;height:10px;border-radius:2px;flex:none}
+.legend .sw.ln{height:0;border-top:2px solid var(--fan-line);border-radius:0}
+
+.tracebar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;
+  margin-top:13px;padding-top:13px;border-top:1px solid var(--hair)}
+.tracebar .lb{font-size:10.5px;font-weight:600;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--muted);margin-right:3px}
+.tracebar .chip{padding:4px 10px;font-size:11.5px}
+.tracebar .chip:disabled{opacity:.35;cursor:not-allowed;border-color:var(--hair)}
+.tracebar .chip:disabled:hover{color:var(--ink-2);border-color:var(--hair)}
+.tracebar .step{padding:4px 9px;font-family:"IBM Plex Mono",monospace}
+.tracenote{margin-top:11px;font-size:12.5px;color:var(--ink-2);line-height:1.65;display:none}
+.tracenote.on{display:block}
+.tracenote b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+.tracenote .seq{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;
+  color:var(--ink);font-weight:500}
+.tip{
+  position:absolute;pointer-events:none;opacity:0;transition:opacity .1s;z-index:5;
+  background:var(--surface);border:1px solid var(--hair-2);border-radius:8px;padding:9px 11px;
+  box-shadow:0 4px 18px -6px rgba(0,0,0,.35);min-width:172px;
+}
+.tip .th{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);
+  margin-bottom:6px;padding-bottom:5px;border-bottom:1px solid var(--hair)}
+.tip .tr{display:flex;align-items:center;gap:9px;font-size:12px;line-height:1.75}
+.tip .tr .sw{width:11px;height:9px;border-radius:2px;flex:none}
+.tip .tr .k{color:var(--ink-2)}
+.tip .tr .v{margin-left:auto;font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;font-weight:500}
+
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(370px,1fr));gap:18px}
+
+details.tableview{margin-top:14px;border-top:1px solid var(--hair);padding-top:10px}
+details.tableview summary{cursor:pointer;font-size:11.5px;color:var(--muted);list-style:none;display:flex;gap:7px;align-items:center}
+details.tableview summary::-webkit-details-marker{display:none}
+details.tableview summary:hover{color:var(--accent)}
+.tblscroll{overflow-x:auto;margin-top:10px}
+table.data{border-collapse:collapse;width:100%;font-size:12px}
+table.data th,table.data td{padding:5px 10px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--hair)}
+table.data th:first-child,table.data td:first-child{text-align:left}
+table.data th{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+table.data td{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;color:var(--ink-2)}
+table.data td:first-child{font-family:"IBM Plex Sans",sans-serif;color:var(--ink)}
+
+.notes{font-size:12.5px;color:var(--ink-2);line-height:1.62;columns:2;column-gap:34px}
+@media (max-width:760px){ .notes{columns:1} }
+.notes p{margin:0 0 9px;break-inside:avoid}
+.notes b{color:var(--ink);font-weight:600}
+.disclaimer{margin-top:14px;padding-top:12px;border-top:1px solid var(--hair);font-size:11.5px;color:var(--muted)}
+
+@media (prefers-reduced-motion: reduce){ *{transition:none !important;animation:none !important} }
+</style>
+
+<div class="app">
+  <header class="topbar">
+    <div>
+      <h1 class="wordmark">Sequence <span>Risk</span></h1>
+      <div class="tagline">Five thousand simulated lifetimes for one household. Move anything on the left; the futures redraw.</div>
+    </div>
+    <div class="spacer"></div>
+    <div class="runmeta" id="runmeta">—</div>
+  </header>
+
+  <div class="layout">
+    <!-- ============ CONTROL RAIL ============ -->
+    <aside class="rail" aria-label="Assumptions">
+      <div class="presets">
+        <p class="eyebrow">Scenario</p>
+        <div class="chips" id="presets"></div>
+      </div>
+
+      <details class="grp" open>
+        <summary><i class="caret"></i>You<span class="sum" id="sum-you"></span></summary>
+        <div class="grp-body" data-group="you"></div>
+      </details>
+
+      <details class="grp" open>
+        <summary><i class="caret"></i>Partner<span class="sum" id="sum-partner"></span></summary>
+        <div class="grp-body" data-group="partner"></div>
+      </details>
+
+      <details class="grp" open>
+        <summary><i class="caret"></i>Money<span class="sum" id="sum-money"></span></summary>
+        <div class="grp-body" data-group="money"></div>
+      </details>
+
+      <div class="cashflow" id="cashflow"></div>
+
+      <details class="grp">
+        <summary><i class="caret"></i>Home &amp; mortgage<span class="sum" id="sum-home"></span></summary>
+        <div class="grp-body" data-group="home"></div>
+      </details>
+
+      <details class="grp">
+        <summary><i class="caret"></i>Markets<span class="sum" id="sum-markets"></span></summary>
+        <div class="grp-body" data-group="markets"></div>
+      </details>
+
+      <details class="grp">
+        <summary><i class="caret"></i>Government benefits<span class="sum" id="sum-gov"></span></summary>
+        <div class="grp-body" data-group="gov"></div>
+      </details>
+
+      <details class="grp">
+        <summary><i class="caret"></i>Life events<span class="sum" id="sum-events"></span></summary>
+        <div class="grp-body">
+          <div class="events" id="events"></div>
+          <button class="btn-ghost" id="addEvent" type="button">+ Add an event</button>
+        </div>
+      </details>
+
+      <details class="grp">
+        <summary><i class="caret"></i>Simulation<span class="sum" id="sum-sim"></span></summary>
+        <div class="grp-body" data-group="sim"></div>
+      </details>
+
+      <div class="railfoot">
+        <button class="btn-ghost" id="shareLink" type="button">Copy a link holding these numbers</button>
+        <input class="sharebox" id="shareBox" readonly hidden aria-label="Shareable link">
+        <button class="btn-ghost" id="resetAll" type="button">Reset to the starting example</button>
+      </div>
+    </aside>
+
+    <!-- ============ RESULTS ============ -->
+    <main class="results">
+
+      <section class="card">
+        <div class="verdict">
+          <div class="hero">
+            <span class="k">Scenarios that never run dry</span>
+            <span class="v num" id="successVal">—</span>
+            <div class="meter"><i id="successMeter" style="width:0%"></i></div>
+            <span class="cap" id="successCap">—</span>
+          </div>
+          <div>
+            <div style="margin-bottom:10px" id="verdictPill"></div>
+            <p class="verdict-note" id="verdictNote">—</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="tiles" id="tiles"></section>
+
+      <section class="card">
+        <div class="card-head">
+          <span class="card-title">Wealth fan</span>
+          <span class="card-sub" id="fanSub">Liquid wealth by your age, every future stacked by likelihood.</span>
+          <span class="card-tools">
+            <span class="mini-seg" id="scaleSeg" role="group" aria-label="Vertical scale">
+              <button type="button" data-v="log" aria-pressed="true">Log</button>
+              <button type="button" data-v="lin" aria-pressed="false">Linear</button>
+            </span>
+          </span>
+        </div>
+        <div class="chartwrap" id="fanWrap">
+          <div class="tip" id="fanTip"></div>
+        </div>
+        <div class="legend" id="fanLegend"></div>
+        <div class="tracebar" id="traceBar" role="group" aria-label="Trace a single lifetime"></div>
+        <p class="tracenote" id="traceNote"></p>
+        <details class="tableview">
+          <summary>Show the numbers as a table</summary>
+          <div class="tblscroll" id="fanTable"></div>
+        </details>
+      </section>
+
+      <div class="grid2">
+        <section class="card">
+          <div class="card-head">
+            <span class="card-title">Where you land</span>
+            <span class="card-sub" id="histSub">Liquid wealth at the end of the plan, in today's dollars.</span>
+          </div>
+          <div class="chartwrap" id="histWrap"><div class="tip" id="histTip"></div></div>
+          <div class="legend" id="histLegend"></div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <span class="card-title">What moves the needle</span>
+            <span class="card-sub">Change one assumption, hold the rest — the shift in survival odds.</span>
+          </div>
+          <div class="chartwrap" id="tornadoWrap"><div class="tip" id="tornadoTip"></div></div>
+          <div class="legend" id="tornadoLegend"></div>
+        </section>
+      </div>
+
+      <section class="card">
+        <div class="card-head">
+          <span class="card-title">How this is calculated</span>
+          <span class="card-sub">Worth reading once, so you know what the fan does and does not know.</span>
+        </div>
+        <div class="notes" id="notes"></div>
+        <p class="disclaimer" id="disclaimer"></p>
+      </section>
+    </main>
+  </div>
+</div>
+
+<style>
+svg text{font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+svg .ax{fill:var(--muted);font-size:10.5px}
+svg .axs{fill:var(--muted);font-size:9.5px;letter-spacing:.05em}
+svg .lbl{fill:var(--ink);font-size:11px;font-weight:500}
+svg .lbl2{fill:var(--ink-2);font-size:10.5px}
+svg .anno{fill:var(--muted);font-size:10px;letter-spacing:.04em;text-transform:uppercase;
+  font-family:"IBM Plex Sans",sans-serif}
+svg .grid{stroke:var(--grid);stroke-width:1}
+svg .axis{stroke:var(--axis);stroke-width:1}
+svg .band{fill:rgb(var(--fan));fill-opacity:.11}
+svg .medline{stroke:var(--fan-line);stroke-width:2;fill:none;stroke-linejoin:round;stroke-linecap:round}
+svg .pline{stroke:rgb(var(--fan));stroke-width:1;fill:none;stroke-opacity:.55}
+svg .ruin{fill:var(--crit);fill-opacity:.2}
+svg .ruinline{stroke:var(--crit);stroke-width:2;fill:none;stroke-linejoin:round}
+svg .cross{stroke:var(--ink);stroke-width:1;stroke-opacity:.45}
+svg .hit{fill:transparent;cursor:crosshair}
+svg .tracehalo{stroke:var(--surface);stroke-width:5;fill:none;stroke-linejoin:round;stroke-opacity:.9}
+svg .traceline{stroke:var(--ink);stroke-width:2;fill:none;stroke-linejoin:round;stroke-linecap:round}
+svg .bar{transition:fill-opacity .1s}
+svg .bar:hover{fill-opacity:.75}
+</style>
+
+<script>
+(function(){
+"use strict";
+/* ============================================================
+   Sequence Risk — a Monte Carlo retirement simulator
+   All money is in REAL (today's) Canadian dollars unless noted.
+   ============================================================ */
+
+var NOW = new Date().getFullYear();
+var CPP_MAX = 17196;   // CPP at 65, 2026 maximum, annual
+var OAS_MAX = 8814;    // OAS at 65, annual
+
+/* ---------- formatting ---------- */
+function money(v){
+  var a = Math.abs(v), s = v < 0 ? "−" : "";
+  if (a >= 1e9) return s + "$" + (a/1e9).toFixed(2) + "B";
+  if (a >= 1e6) return s + "$" + (a/1e6).toFixed(a >= 1e7 ? 1 : 2) + "M";
+  if (a >= 1e3) return s + "$" + Math.round(a/1e3) + "k";
+  return s + "$" + Math.round(a);
+}
+function moneyFull(v){ return "$" + Math.round(v).toLocaleString("en-CA"); }
+function pct(v, dp){ return (v).toFixed(dp == null ? 1 : dp) + "%"; }
+function parseNum(str){
+  if (typeof str === "number") return str;
+  var t = String(str).trim().toLowerCase().replace(/[$,\s−]/g, "");
+  var mult = 1;
+  if (/[km]$/.test(t)) { mult = t.slice(-1) === "m" ? 1e6 : 1e3; t = t.slice(0, -1); }
+  if (t.endsWith("%")) t = t.slice(0, -1);
+  var v = parseFloat(t);
+  return isFinite(v) ? v * mult : NaN;
+}
+function clamp(v, lo, hi){ return v < lo ? lo : v > hi ? hi : v; }
+
+/* ---------- random ---------- */
+function mulberry32(a){
+  return function(){
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    var t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function makeGauss(rnd){
+  var spare = null;
+  return function(){
+    if (spare !== null){ var s = spare; spare = null; return s; }
+    var u, v, s2;
+    do { u = rnd()*2-1; v = rnd()*2-1; s2 = u*u + v*v; } while (s2 >= 1 || s2 === 0);
+    var f = Math.sqrt(-2 * Math.log(s2) / s2);
+    spare = v * f; return u * f;
+  };
+}
+
+/* ---------- Canadian tax (Ontario), approximate ---------- */
+var FED = [[57375,0.145],[114750,0.205],[177882,0.26],[253414,0.29],[Infinity,0.33]];
+var ONT = [[52886,0.0505],[105775,0.0915],[150000,0.1116],[220000,0.1216],[Infinity,0.1316]];
+function bracketTax(inc, br){
+  var t = 0, prev = 0;
+  for (var i = 0; i < br.length; i++){
+    var cap = br[i][0], rate = br[i][1];
+    if (inc <= prev) break;
+    t += (Math.min(inc, cap) - prev) * rate;
+    prev = cap;
+  }
+  return t;
+}
+function ontHealth(inc){
+  if (inc > 200600) return 900; if (inc > 72000) return 750; if (inc > 48000) return 600;
+  if (inc > 36000) return 450; if (inc > 20000) return 300; return 0;
+}
+// Returns take-home pay on employment income, after federal + Ontario tax,
+// Ontario surtax, the health premium and CPP/EI contributions.
+function afterTaxIncome(gross){
+  if (gross <= 0) return 0;
+  var cppEi = Math.min(gross * 0.075, 5300);
+  var fed = bracketTax(gross, FED) - (14538 + cppEi) * 0.145;
+  var ont = Math.max(0, bracketTax(gross, ONT) - 12747 * 0.0505);
+  var surtax = 0.20 * Math.max(0, ont - 5710) + 0.36 * Math.max(0, ont - 7307);
+  var total = Math.max(0, fed) + ont + surtax + ontHealth(gross) + cppEi;
+  return gross - total;
+}
+
+/* ---------- mortgage ---------- */
+function pmt(P, i, n){ return i <= 0 ? P / n : P * i / (1 - Math.pow(1 + i, -n)); }
+function mortgageSchedule(S, N){
+  var out = [], bal = S.mortBal, rate = S.mortRate / 100;
+  var totalMonths = Math.max(1, Math.round(S.amortYears * 12));
+  var pay = pmt(bal, rate/12, totalMonths);
+  var renewIdx = Math.max(0, Math.round(S.renewYear - NOW));
+  for (var y = 0; y < N; y++){
+    if (y === renewIdx && bal > 0.01){
+      rate = S.renewRate / 100;
+      var rem = Math.max(12, totalMonths - renewIdx * 12);
+      pay = pmt(bal, rate/12, rem);
+    }
+    var paid = 0;
+    for (var m = 0; m < 12 && bal > 0.01; m++){
+      var interest = bal * rate / 12;
+      var principal = pay - interest;
+      if (principal >= bal){ paid += bal + interest; bal = 0; }
+      else { bal -= principal; paid += pay; }
+    }
+    out.push({ paid: paid, balEnd: bal });
+  }
+  return out;
+}
+
+/* ---------- deterministic cash-flow plan ---------- */
+function precompute(S){
+  var startAge = Math.min(S.youAge, S.pAge);
+  var N = Math.max(1, Math.round(S.planAge - startAge));
+  var infl = S.inflation / 100;
+  var sched = mortgageSchedule(S, N);
+  var youNet = afterTaxIncome(S.youIncome);
+  var pNet = afterTaxIncome(S.pIncome);
+  var mortNow = sched.length ? sched[0].paid : 0;
+  var core = S.spendIncludesMortgage ? Math.max(0, S.spend - mortNow) : S.spend;
+
+  var net = new Float64Array(N), income = new Float64Array(N),
+      outflow = new Float64Array(N), mortReal = new Float64Array(N),
+      equity = new Float64Array(N + 1), retired = new Uint8Array(N);
+  equity[0] = S.homeValue - S.mortBal;
+
+  for (var y = 0; y < N; y++){
+    var ay = S.youAge + y, ap = S.pAge + y, inc = 0, ben = 0;
+    if (ay < S.youRetire) inc += youNet;
+    if (ap < S.pRetire) inc += pNet;
+    if (ay >= S.cppStart) ben += CPP_MAX * S.cppPct / 100 * cppAdj(S.cppStart);
+    if (ap >= S.cppStart) ben += CPP_MAX * S.cppPct / 100 * cppAdj(S.cppStart);
+    if (S.oas){ if (ay >= 65) ben += OAS_MAX; if (ap >= 65) ben += OAS_MAX; }
+
+    var bothRet = (ay >= S.youRetire) && (ap >= S.pRetire);
+    retired[y] = bothRet ? 1 : 0;
+    var spend = core * (bothRet ? S.retSpendPct / 100 : 1);
+    for (var e = 0; e < S.events.length; e++){
+      var ev = S.events[e];
+      if (!ev.on) continue;
+      if (ay >= ev.age && ay < ev.age + ev.years) spend += ev.inflow ? -ev.amount : ev.amount;
+    }
+    var mr = sched[y].paid / Math.pow(1 + infl, y);
+    mortReal[y] = mr;
+    income[y] = inc + ben;
+    outflow[y] = spend + mr;
+    net[y] = inc + ben - spend - mr;
+    equity[y+1] = S.homeValue * Math.pow(1 + S.homeGrowth/100, y+1)
+                - sched[y].balEnd / Math.pow(1 + infl, y+1);
+  }
+  return { N:N, net:net, income:income, outflow:outflow, mortReal:mortReal, sched:sched,
+           equity:equity, retired:retired, core:core, youNet:youNet, pNet:pNet,
+           startPort: S.youAssets + S.pAssets };
+}
+// CPP is reduced 0.6%/month before 65 and increased 0.7%/month after.
+function cppAdj(start){
+  var d = start - 65;
+  return d < 0 ? 1 + d * 12 * 0.006 : 1 + d * 12 * 0.007;
+}
+
+/* Lognormal parameters from an arithmetic mean and an arithmetic standard
+   deviation — σ as typed is the SD of the return, not of its logarithm. */
+function logParams(S){
+  var base = Math.max(0.0001, 1 + S.realReturn / 100 - S.drag / 100), sd = S.vol / 100;
+  var s2 = Math.log(1 + sd * sd / (base * base));
+  return { muLog: Math.log(base) - s2 / 2, sLog: Math.sqrt(s2) };
+}
+
+/* ---------- the simulation ---------- */
+function simulate(S, nPaths, seed, pre){
+  pre = pre || precompute(S);
+  var N = pre.N, rnd = mulberry32(seed), gauss = makeGauss(rnd);
+  var lp = logParams(S), muLog = lp.muLog, sLog = lp.sLog;
+  var df = 5, tScale = Math.sqrt((df - 2) / df), fat = !!S.fatTails;
+  var grossUp = 1 / (1 - clamp(S.retTax/100, 0, 0.7));
+
+  var vals = new Float64Array((N + 1) * nPaths);
+  var failAt = new Int16Array(nPaths);
+  var survivors = 0;
+
+  for (var p = 0; p < nPaths; p++){
+    var port = pre.startPort, fail = -1;
+    vals[p] = port;
+    for (var y = 0; y < N; y++){
+      var nf = pre.net[y];
+      if (nf >= 0) port += nf;
+      else port -= (-nf) * grossUp;
+      if (port <= 0){ port = 0; if (fail < 0) fail = y; }
+      var z;
+      if (fat){
+        var c = 0; for (var i = 0; i < df; i++){ var g = gauss(); c += g*g; }
+        z = gauss() / Math.sqrt(c / df) * tScale;
+      } else z = gauss();
+      if (z > 6) z = 6; else if (z < -6) z = -6;   // exp(sigma*t) has no finite mean
+      port *= Math.exp(muLog + sLog * z);
+      vals[(y + 1) * nPaths + p] = port;
+    }
+    failAt[p] = fail;
+    if (fail < 0) survivors++;
+  }
+  return { N:N, nPaths:nPaths, vals:vals, failAt:failAt,
+           success: survivors / nPaths * 100, pre:pre, S:S };
+}
+function successOnly(S, nPaths, seed){
+  var pre = precompute(S), N = pre.N, rnd = mulberry32(seed), gauss = makeGauss(rnd);
+  var lp = logParams(S), muLog = lp.muLog, sLog = lp.sLog;
+  var df = 5, tScale = Math.sqrt((df-2)/df), fat = !!S.fatTails;
+  var grossUp = 1 / (1 - clamp(S.retTax/100, 0, 0.7));
+  var ok = 0;
+  for (var p = 0; p < nPaths; p++){
+    var port = pre.startPort, alive = true;
+    for (var y = 0; y < N; y++){
+      var nf = pre.net[y];
+      if (nf >= 0) port += nf; else port -= (-nf) * grossUp;
+      if (port <= 0){ port = 0; alive = false; }
+      var z;
+      if (fat){ var c = 0; for (var i = 0; i < df; i++){ var g = gauss(); c += g*g; }
+        z = gauss() / Math.sqrt(c/df) * tScale; } else z = gauss();
+      if (z > 6) z = 6; else if (z < -6) z = -6;
+      port *= Math.exp(muLog + sLog * z);
+    }
+    if (alive) ok++;
+  }
+  return ok / nPaths * 100;
+}
+
+/* ---------- percentiles ---------- */
+var PCTS = [5, 10, 25, 50, 75, 90, 95];
+function analyse(res){
+  var N = res.N, n = res.nPaths, vals = res.vals;
+  var bands = PCTS.map(function(){ return new Float64Array(N + 1); });
+  var ruin = new Float64Array(N + 1);
+  var tmp = new Float64Array(n);
+  for (var y = 0; y <= N; y++){
+    tmp.set(vals.subarray(y * n, (y + 1) * n));
+    tmp.sort();
+    for (var i = 0; i < PCTS.length; i++){
+      var idx = clamp(Math.round(PCTS[i] / 100 * (n - 1)), 0, n - 1);
+      bands[i][y] = tmp[idx];
+    }
+    var z = 0; while (z < n && tmp[z] <= 0) z++;
+    ruin[y] = z / n * 100;
+  }
+  var lastRow = vals.subarray(N * n, (N + 1) * n);
+  var ending = new Float64Array(n);
+  ending.set(lastRow);
+  ending.sort();
+  // path indices ranked by how the lifetime ended — lets the UI fetch "the
+  // 10th-percentile life" rather than merely the 10th-percentile number
+  var order = new Int32Array(n);
+  for (var k = 0; k < n; k++) order[k] = k;
+  order.sort(function(a, b){ return lastRow[a] - lastRow[b]; });
+  // failing paths, earliest ruin first
+  var fails = [], failList = [];
+  for (var p = 0; p < n; p++) if (res.failAt[p] >= 0){ fails.push(res.failAt[p]); failList.push(p); }
+  fails.sort(function(a,b){ return a - b; });
+  failList.sort(function(a,b){ return res.failAt[a] - res.failAt[b]; });
+  return { bands:bands, ruin:ruin, ending:ending, fails:fails, failList:failList, order:order,
+           maxRuin: ruin[N], N:N, n:n };
+}
+function q(sortedArr, p){
+  var n = sortedArr.length;
+  if (!n) return NaN;
+  return sortedArr[clamp(Math.round(p * (n - 1)), 0, n - 1)];
+}
+
+/* ---------- safe spending solver ---------- */
+function solveSafeSpend(S, target, paths, seed){
+  var lo = 10000, hi = 1200000, best = lo;
+  for (var i = 0; i < 17; i++){
+    var mid = (lo + hi) / 2;
+    var T = Object.assign({}, S, { spend: mid });
+    if (successOnly(T, paths, seed) >= target){ best = mid; lo = mid; } else hi = mid;
+  }
+  return best;
+}
+
+/* ============================================================
+   State
+   ============================================================ */
+var DEFAULTS = {
+  youAge: 40, youIncome: 140000, youRetire: 60,
+  pAge: 40, pIncome: 110000, pRetire: 60,
+  youAssets: 450000, pAssets: 300000,
+  spend: 90000, retSpendPct: 100, spendIncludesMortgage: false,
+  homeValue: 800000, mortBal: 400000, mortRate: 4.50,
+  renewYear: NOW + 2, renewRate: 4.75, amortYears: 22, homeGrowth: 1.0,
+  realReturn: 5.0, vol: 15.0, drag: 0.4, retTax: 18, inflation: 2.2, fatTails: false,
+  cppPct: 100, cppStart: 65, oas: false,
+  planAge: 95, paths: 5000, seed: 7,
+  events: [
+    { on:false, name:"Kids — the expensive years", age:40, years:18, amount:24000, inflow:false },
+    { on:false, name:"University × 2",             age:58, years:8,  amount:30000, inflow:false },
+    { on:false, name:"Upsize the house",           age:44, years:1,  amount:250000, inflow:false },
+    { on:false, name:"Downsize, release equity",   age:72, years:1,  amount:350000, inflow:true },
+    { on:false, name:"Long-term care",             age:87, years:8,  amount:90000, inflow:false }
+  ]
+};
+var S = fromHash() || load() || clone(DEFAULTS);
+
+function clone(o){ return JSON.parse(JSON.stringify(o)); }
+function merge(o){
+  var base = clone(DEFAULTS);
+  for (var k in base) if (o[k] !== undefined) base[k] = o[k];
+  if (!Array.isArray(base.events) || !base.events.length) base.events = clone(DEFAULTS.events);
+  return base;
+}
+// A scenario lives in the URL fragment, which never reaches a server — so a
+// link carrying your real figures stays between you and whoever you send it to.
+function encodeHash(){
+  try {
+    return btoa(unescape(encodeURIComponent(JSON.stringify(S))))
+      .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  } catch(e){ return ""; }
+}
+function fromHash(){
+  try {
+    var h = location.hash || "";
+    if (h.indexOf("#s=") !== 0) return null;
+    var b = h.slice(3).replace(/-/g, "+").replace(/_/g, "/");
+    return merge(JSON.parse(decodeURIComponent(escape(atob(b)))));
+  } catch(e){ return null; }
+}
+function save(){ try { localStorage.setItem("seqrisk.v1", JSON.stringify(S)); } catch(e){} }
+function load(){
+  try {
+    var raw = localStorage.getItem("seqrisk.v1");
+    return raw ? merge(JSON.parse(raw)) : null;
+  } catch(e){ return null; }
+}
+
+/* ============================================================
+   Control definitions
+   ============================================================ */
+var FIELDS = [
+  { g:"you", k:"youAge",    label:"Your age today",        min:25, max:75, step:1, kind:"int" },
+  { g:"you", k:"youIncome", label:"Your gross income",     min:0, max:1500000, step:5000, kind:"money" },
+  { g:"you", k:"youRetire", label:"You stop working at",   min:35, max:80, step:1, kind:"int",
+    hint:"age" },
+
+  { g:"partner", k:"pAge",    label:"Partner's age today",      min:25, max:75, step:1, kind:"int" },
+  { g:"partner", k:"pIncome", label:"Partner's gross income",   min:0, max:1500000, step:5000, kind:"money" },
+  { g:"partner", k:"pRetire", label:"Partner stops working at", min:35, max:80, step:1, kind:"int",
+    hint:"age" },
+
+  { g:"money", k:"youAssets", label:"Your liquid investments",    min:0, max:15000000, step:25000, kind:"money" },
+  { g:"money", k:"pAssets",   label:"Partner's liquid investments", min:0, max:15000000, step:25000, kind:"money" },
+  { g:"money", k:"spend",     label:"Household spending / year",  min:40000, max:600000, step:2500, kind:"money" },
+  { g:"money", k:"spendIncludesMortgage", label:"…already includes the mortgage payment", kind:"toggle" },
+  { g:"money", k:"retSpendPct", label:"Spending once both retire", min:50, max:140, step:1, kind:"pct0",
+    hint:"of today's" },
+
+  { g:"home", k:"homeValue",  label:"Home value",              min:0, max:6000000, step:25000, kind:"money" },
+  { g:"home", k:"mortBal",    label:"Mortgage balance",         min:0, max:3000000, step:10000, kind:"money" },
+  { g:"home", k:"mortRate",   label:"Rate until renewal",       min:0, max:12, step:0.01, kind:"pct2" },
+  { g:"home", k:"renewYear",  label:"Renewal year",             min:NOW, max:NOW+15, step:1, kind:"int" },
+  { g:"home", k:"renewRate",  label:"Rate after renewal",       min:0, max:14, step:0.05, kind:"pct2" },
+  { g:"home", k:"amortYears", label:"Amortization left",        min:1, max:35, step:1, kind:"int", hint:"years" },
+  { g:"home", k:"homeGrowth", label:"Home appreciation",        min:-3, max:6, step:0.1, kind:"pct1",
+    hint:"real, above inflation" },
+
+  { g:"markets", k:"realReturn", label:"Average annual return", min:0, max:12, step:0.1, kind:"pct1",
+    hint:"real, arithmetic" },
+  { g:"markets", k:"vol",        label:"Volatility",        min:2, max:35, step:0.5, kind:"pct1",
+    hint:"annual σ, of the return" },
+  { g:"markets", k:"fatTails",   label:"Fat tails (Student-t, ν=5)", kind:"toggle",
+    hint:"crashes are likelier than a bell curve says" },
+  { g:"markets", k:"drag",       label:"Fees + tax drag",    min:0, max:2.5, step:0.05, kind:"pct2" },
+  { g:"markets", k:"retTax",     label:"Tax on withdrawals", min:0, max:45, step:1, kind:"pct0" },
+  { g:"markets", k:"inflation",  label:"Inflation",          min:0, max:7, step:0.1, kind:"pct1",
+    hint:"only erodes the mortgage" },
+
+  { g:"gov", k:"cppPct",   label:"CPP earned",       min:0, max:100, step:5, kind:"pct0", hint:"of the maximum, each" },
+  { g:"gov", k:"cppStart", label:"CPP starts at",    min:60, max:70, step:1, kind:"int", hint:"age" },
+  { g:"gov", k:"oas",      label:"Count OAS too",    kind:"toggle", hint:"clawed back at high income" },
+
+  { g:"sim", k:"planAge",  label:"Plan through age", min:75, max:105, step:1, kind:"int" },
+  { g:"sim", k:"paths",    label:"Simulated lifetimes", min:1000, max:20000, step:1000, kind:"int" },
+  { g:"sim", k:"seed",     label:"Random seed",      min:1, max:999, step:1, kind:"int",
+    hint:"same seed, same futures" }
+];
+
+var PRESETS = [
+  { name:"Base plan", set:{} },
+  { name:"Both retire at 55", set:{ youRetire:55, pRetire:55 } },
+  { name:"Stop today", set:{ youRetire:40, pRetire:40 } },
+  { name:"Spend $130k", set:{ spend:130000 } },
+  { name:"Kids + upsize", set:{ spend:112000, evOn:[0,1,2] } },
+  { name:"Rough century", set:{ realReturn:3.5, vol:19, fatTails:true, retTax:24 } }
+];
+
+/* ============================================================
+   Control rendering
+   ============================================================ */
+function fmtVal(v, f){
+  if (f.kind === "money") return money(v);
+  if (f.kind === "pct0") return v.toFixed(0) + "%";
+  if (f.kind === "pct1") return v.toFixed(1) + "%";
+  if (f.kind === "pct2") return v.toFixed(2) + "%";
+  return String(v);
+}
+var controlRefs = {};
+
+function buildControls(){
+  FIELDS.forEach(function(f){
+    var host = document.querySelector('.grp-body[data-group="' + f.g + '"]');
+    if (!host) return;
+    if (f.kind === "toggle"){
+      var lab = document.createElement("label");
+      lab.className = "toggle";
+      var cb = document.createElement("input");
+      cb.type = "checkbox"; cb.checked = !!S[f.k]; cb.id = "f-" + f.k;
+      var txt = document.createElement("span");
+      txt.innerHTML = f.label + (f.hint ? ' <span class="hint" style="color:var(--muted);font-size:11px">· ' + f.hint + "</span>" : "");
+      lab.appendChild(cb); lab.appendChild(txt); host.appendChild(lab);
+      cb.addEventListener("change", function(){ S[f.k] = cb.checked; onChange(); });
+      controlRefs[f.k] = { cb: cb };
+      return;
+    }
+    var wrap = document.createElement("div");
+    wrap.className = "field";
+    var top = document.createElement("div");
+    top.className = "field-top";
+    var lb = document.createElement("label");
+    lb.htmlFor = "f-" + f.k; lb.textContent = f.label;
+    top.appendChild(lb);
+    if (f.hint){ var h = document.createElement("span"); h.className = "hint"; h.textContent = f.hint; top.appendChild(h); }
+    var num = document.createElement("input");
+    num.type = "text"; num.inputMode = "decimal"; num.id = "f-" + f.k;
+    num.value = fmtVal(S[f.k], f);
+    num.setAttribute("aria-label", f.label);
+    top.appendChild(num);
+    var rng = document.createElement("input");
+    rng.type = "range"; rng.min = f.min; rng.max = f.max; rng.step = f.step;
+    rng.value = S[f.k]; rng.tabIndex = -1; rng.setAttribute("aria-label", f.label);
+    wrap.appendChild(top); wrap.appendChild(rng); host.appendChild(wrap);
+
+    rng.addEventListener("input", function(){
+      S[f.k] = parseFloat(rng.value);
+      num.value = fmtVal(S[f.k], f);
+      onChange();
+    });
+    function commit(){
+      var v = parseNum(num.value);
+      if (!isFinite(v)) { num.value = fmtVal(S[f.k], f); return; }
+      S[f.k] = clamp(v, f.min, f.max);
+      rng.value = S[f.k];
+      num.value = fmtVal(S[f.k], f);
+      onChange();
+    }
+    num.addEventListener("change", commit);
+    num.addEventListener("blur", commit);
+    num.addEventListener("keydown", function(e){ if (e.key === "Enter") num.blur(); });
+    controlRefs[f.k] = { num: num, rng: rng, f: f };
+  });
+}
+function syncControls(){
+  FIELDS.forEach(function(f){
+    var r = controlRefs[f.k];
+    if (!r) return;
+    if (r.cb) r.cb.checked = !!S[f.k];
+    else { r.rng.value = S[f.k]; r.num.value = fmtVal(S[f.k], f); }
+  });
+  buildEvents();
+}
+
+/* ---------- life events ---------- */
+function buildEvents(){
+  var host = document.getElementById("events");
+  host.innerHTML = "";
+  S.events.forEach(function(ev, i){
+    var row = document.createElement("div");
+    row.className = "ev" + (ev.on ? "" : " off");
+
+    var cb = document.createElement("input");
+    cb.type = "checkbox"; cb.className = "ev-check"; cb.checked = ev.on;
+    cb.setAttribute("aria-label", "Include " + ev.name);
+    cb.addEventListener("change", function(){ ev.on = cb.checked; buildEvents(); onChange(); });
+
+    var name = document.createElement("div");
+    name.className = "ev-name";
+    name.textContent = ev.name;
+
+    var del = document.createElement("button");
+    del.type = "button"; del.className = "ev-del"; del.innerHTML = "&times;";
+    del.title = "Remove"; del.setAttribute("aria-label", "Remove " + ev.name);
+    del.addEventListener("click", function(){ S.events.splice(i, 1); buildEvents(); onChange(); });
+    name.appendChild(del);
+    name.style.display = "flex";
+    name.style.alignItems = "center";
+    del.style.marginLeft = "auto";
+
+    var sub = document.createElement("div");
+    sub.className = "ev-sub";
+    sub.appendChild(mkEvNum(ev, "amount", "money", "per year"));
+    sub.appendChild(mkLbl("from age"));
+    sub.appendChild(mkEvNum(ev, "age", "int", ""));
+    sub.appendChild(mkLbl("for"));
+    sub.appendChild(mkEvNum(ev, "years", "int", ""));
+    sub.appendChild(mkLbl("yrs"));
+    var flow = document.createElement("button");
+    flow.type = "button";
+    flow.className = "ev-flow" + (ev.inflow ? " in" : "");
+    flow.style.cssText = "border:0;background:transparent;cursor:pointer;margin-left:auto";
+    flow.textContent = ev.inflow ? "money in" : "money out";
+    flow.title = "Flip between an expense and a windfall";
+    flow.addEventListener("click", function(){ ev.inflow = !ev.inflow; buildEvents(); onChange(); });
+    sub.appendChild(flow);
+
+    row.appendChild(cb); row.appendChild(name); row.appendChild(sub);
+    host.appendChild(row);
+  });
+}
+function mkLbl(t){ var s = document.createElement("span"); s.className = "lb"; s.textContent = t; return s; }
+function mkEvNum(ev, key, kind, title){
+  var inp = document.createElement("input");
+  inp.type = "text"; inp.inputMode = "decimal"; inp.title = title;
+  inp.setAttribute("aria-label", ev.name + " " + key);
+  inp.value = kind === "money" ? money(ev[key]) : String(ev[key]);
+  if (kind !== "money") inp.style.width = "48px";
+  function commit(){
+    var v = parseNum(inp.value);
+    if (isFinite(v)) ev[key] = kind === "money" ? Math.max(0, v) : clamp(Math.round(v), key === "years" ? 1 : 20, key === "years" ? 60 : 105);
+    inp.value = kind === "money" ? money(ev[key]) : String(ev[key]);
+    onChange();
+  }
+  inp.addEventListener("change", commit);
+  inp.addEventListener("blur", commit);
+  inp.addEventListener("keydown", function(e){ if (e.key === "Enter") inp.blur(); });
+  return inp;
+}
+document.getElementById("addEvent").addEventListener("click", function(){
+  S.events.push({ on:true, name:"New event", age:Math.min(S.youAge + 5, 100), years:1, amount:50000, inflow:false });
+  buildEvents(); onChange();
+});
+
+/* ---------- presets ---------- */
+var activePreset = 0;
+function buildPresets(){
+  var host = document.getElementById("presets");
+  PRESETS.forEach(function(p, i){
+    var b = document.createElement("button");
+    b.type = "button"; b.className = "chip"; b.textContent = p.name;
+    b.setAttribute("aria-pressed", i === 0 ? "true" : "false");
+    b.addEventListener("click", function(){
+      var base = clone(DEFAULTS);
+      for (var k in p.set) if (k !== "evOn") base[k] = p.set[k];
+      if (p.set.evOn) p.set.evOn.forEach(function(idx){ if (base.events[idx]) base.events[idx].on = true; });
+      S = base;
+      activePreset = i;
+      Array.prototype.forEach.call(host.children, function(c, j){ c.setAttribute("aria-pressed", j === i ? "true" : "false"); });
+      applyingPreset = true; syncControls(); onChange(); applyingPreset = false;
+    });
+    host.appendChild(b);
+  });
+}
+function clearPreset(){
+  var host = document.getElementById("presets");
+  Array.prototype.forEach.call(host.children, function(c){ c.setAttribute("aria-pressed", "false"); });
+}
+document.getElementById("shareLink").addEventListener("click", function(){
+  var btn = this, box = document.getElementById("shareBox");
+  var url = location.origin + location.pathname + "#s=" + encodeHash();
+  function reveal(msg){
+    btn.textContent = msg;
+    setTimeout(function(){ btn.textContent = "Copy a link holding these numbers"; }, 2400);
+  }
+  box.value = url;
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(url).then(function(){ reveal("Link copied"); },
+      function(){ box.hidden = false; box.select(); reveal("Copy it from below"); });
+  } else { box.hidden = false; box.select(); reveal("Copy it from below"); }
+});
+
+document.getElementById("resetAll").addEventListener("click", function(){
+  S = clone(DEFAULTS); syncControls(); clearPreset();
+  document.getElementById("presets").children[0].setAttribute("aria-pressed", "true");
+  applyingPreset = true; onChange(); applyingPreset = false;
+});
+
+/* ============================================================
+   SVG helpers
+   ============================================================ */
+var NS = "http://www.w3.org/2000/svg";
+function E(tag, attrs, text){
+  var e = document.createElementNS(NS, tag);
+  for (var k in attrs) if (attrs[k] != null) e.setAttribute(k, attrs[k]);
+  if (text != null) e.textContent = text;
+  return e;
+}
+function niceTicks(max, count){
+  if (!(max > 0)) return [0];
+  var raw = max / count, mag = Math.pow(10, Math.floor(Math.log10(raw))), n = raw / mag, step;
+  if (n <= 1) step = 1; else if (n <= 2) step = 2; else if (n <= 2.5) step = 2.5;
+  else if (n <= 5) step = 5; else step = 10;
+  step *= mag;
+  var out = [];
+  for (var v = 0; v <= max * 1.0000001; v += step) out.push(v);
+  return out;
+}
+function logTicks(lo, hi){
+  var out = [], e = Math.floor(Math.log10(lo));
+  for (; Math.pow(10, e) <= hi * 1.0001 && out.length < 24; e++){
+    [1, 3].forEach(function(m){
+      var v = m * Math.pow(10, e);
+      if (v >= lo * 0.999 && v <= hi * 1.0001) out.push(v);
+    });
+  }
+  return out;
+}
+function barPath(x, y, w, h, r){
+  r = Math.max(0, Math.min(r, w / 2, h));
+  return "M" + x + "," + (y + h) + "V" + (y + r) + "a" + r + "," + r + " 0 0 1 " + r + ",-" + r +
+         "H" + (x + w - r) + "a" + r + "," + r + " 0 0 1 " + r + "," + r + "V" + (y + h) + "Z";
+}
+function hBarPath(x, y, w, h, r, dir){
+  r = Math.max(0, Math.min(r, h / 2, Math.abs(w)));
+  if (dir > 0) return "M" + x + "," + y + "H" + (x + w - r) + "a" + r + "," + r + " 0 0 1 " + r + "," + r +
+    "v" + (h - 2*r) + "a" + r + "," + r + " 0 0 1 " + (-r) + "," + r + "H" + x + "Z";
+  return "M" + x + "," + y + "H" + (x - w + r) + "a" + r + "," + r + " 0 0 0 " + (-r) + "," + r +
+    "v" + (h - 2*r) + "a" + r + "," + r + " 0 0 0 " + r + "," + r + "H" + x + "Z";
+}
+
+/* ============================================================
+   Tracing one lifetime out of the five thousand
+   ============================================================ */
+var tracedPath = null;
+
+function pathTrajectory(res, p){
+  var nP = res.nPaths, N = res.N, out = new Float64Array(N + 1);
+  for (var y = 0; y <= N; y++) out[y] = res.vals[y * nP + p];
+  return out;
+}
+// The annual return is recoverable exactly from the trajectory, because the
+// cash flows are deterministic: balance, then the flow, then the market.
+function pathReturns(res, p){
+  var pre = res.pre, N = pre.N, nP = res.nPaths, out = new Float64Array(N);
+  var grossUp = 1 / (1 - clamp(res.S.retTax / 100, 0, 0.7));
+  for (var y = 0; y < N; y++){
+    var before = res.vals[y * nP + p], nf = pre.net[y];
+    var mid = nf >= 0 ? before + nf : before - (-nf) * grossUp;
+    out[y] = mid > 0 ? res.vals[(y + 1) * nP + p] / mid - 1 : NaN;
+  }
+  return out;
+}
+function fmtR(r){ return (r >= 0 ? "+" : "−") + Math.abs(r * 100).toFixed(0) + "%"; }
+
+var TRACE_KINDS = [
+  { id:"ruin",   label:"Earliest ruin" },
+  { id:"fail",   label:"A typical failure" },
+  { id:"p10",    label:"Bottom tenth" },
+  { id:"median", label:"Median" },
+  { id:"lucky",  label:"Lucky" }
+];
+function pickPath(kind, an){
+  var o = an.order, n = an.n;
+  if (kind === "ruin")   return an.failList.length ? an.failList[0] : o[0];
+  if (kind === "fail")   return an.failList.length ? an.failList[Math.floor(an.failList.length / 2)] : o[Math.floor(0.02 * (n - 1))];
+  if (kind === "p10")    return o[Math.floor(0.10 * (n - 1))];
+  if (kind === "median") return o[Math.floor(0.50 * (n - 1))];
+  if (kind === "lucky")  return o[Math.floor(0.90 * (n - 1))];
+  return Math.floor(Math.random() * n);
+}
+function rankOf(pth, an){
+  for (var i = 0; i < an.n; i++) if (an.order[i] === pth) return i;
+  return -1;
+}
+function setTrace(pth){
+  tracedPath = pth;
+  if (lastRes && lastAn){ renderFan(lastRes, lastAn); buildTraceBar(); }
+}
+function buildTraceBar(){
+  var bar = document.getElementById("traceBar");
+  if (!lastAn) return;
+  var an = lastAn, hasFail = an.failList.length > 0;
+  bar.innerHTML = "";
+  var lb = document.createElement("span");
+  lb.className = "lb"; lb.textContent = "Trace one lifetime";
+  bar.appendChild(lb);
+  TRACE_KINDS.forEach(function(k){
+    var b = document.createElement("button");
+    b.type = "button"; b.className = "chip"; b.textContent = k.label;
+    if ((k.id === "ruin" || k.id === "fail") && !hasFail) b.disabled = true;
+    b.addEventListener("click", function(){ setTrace(pickPath(k.id, an)); });
+    bar.appendChild(b);
+  });
+  ["Random", "◀", "▶"].forEach(function(t, i){
+    var b = document.createElement("button");
+    b.type = "button"; b.className = "chip" + (i ? " step" : "");
+    b.textContent = t;
+    if (i) b.setAttribute("aria-label", i === 1 ? "Previous lifetime by outcome" : "Next lifetime by outcome");
+    if (i && tracedPath == null) b.disabled = true;
+    b.addEventListener("click", function(){
+      if (!i){ setTrace(pickPath("random", an)); return; }
+      var r = rankOf(tracedPath, an);
+      if (r < 0) return;
+      setTrace(an.order[clamp(r + (i === 1 ? -1 : 1), 0, an.n - 1)]);
+    });
+    bar.appendChild(b);
+  });
+  if (tracedPath != null){
+    var c = document.createElement("button");
+    c.type = "button"; c.className = "chip"; c.textContent = "Clear";
+    c.addEventListener("click", function(){ setTrace(null); });
+    bar.appendChild(c);
+  }
+  updateTraceNote();
+}
+function updateTraceNote(){
+  var el = document.getElementById("traceNote");
+  if (tracedPath == null || !lastRes || tracedPath >= lastRes.nPaths){ el.className = "tracenote"; return; }
+  var res = lastRes, an = lastAn, S0 = res.S, N = an.N;
+  var traj = pathTrajectory(res, tracedPath), rets = pathReturns(res, tracedPath);
+  var iRet = Math.min(Math.max(0, Math.round(Math.max(S0.youRetire - S0.youAge, S0.pRetire - S0.pAge))), N);
+  var t = "<b>Lifetime #" + tracedPath.toLocaleString("en-CA") + "</b> of " +
+          res.nPaths.toLocaleString("en-CA") + ". ";
+  t += "Both retired at " + Math.max(S0.youRetire, S0.pRetire) + " holding <b>" + money(traj[iRet]) + "</b>. ";
+  var seq = [];
+  for (var k = iRet; k < Math.min(iRet + 5, N); k++) if (isFinite(rets[k])) seq.push(fmtR(rets[k]));
+  if (seq.length) t += 'The five years that followed returned <span class="seq">' + seq.join(", ") + "</span>. ";
+  var worst = Infinity, wi = 0;
+  for (var yy = 0; yy + 3 <= N; yy++){
+    var c = 1, ok = true;
+    for (var j = 0; j < 3; j++){ if (!isFinite(rets[yy + j])){ ok = false; break; } c *= 1 + rets[yy + j]; }
+    if (ok && c < worst){ worst = c; wi = yy; }
+  }
+  if (isFinite(worst))
+    t += "Worst three-year stretch <b>" + fmtR(worst - 1) + "</b> at ages " +
+         (S0.youAge + wi) + "–" + (S0.youAge + wi + 2) + ". ";
+  t += res.failAt[tracedPath] >= 0
+    ? '<b style="color:var(--crit-ink)">Ran dry at ' + (S0.youAge + res.failAt[tracedPath]) + ".</b>"
+    : "Ended at <b>" + money(traj[N]) + "</b>.";
+  t += '<br><span style="color:var(--muted)">The seed is fixed, so this same market history stays ' +
+       "attached to lifetime #" + tracedPath.toLocaleString("en-CA") +
+       " as you move the sliders — change a retirement age and watch this exact run of luck replay under the new plan.</span>";
+  el.innerHTML = t;
+  el.className = "tracenote on";
+}
+
+/* ============================================================
+   Fan chart + depletion strip
+   ============================================================ */
+var scaleMode = "log";
+function renderFan(res, an){
+  var wrap = document.getElementById("fanWrap");
+  var tip = document.getElementById("fanTip");
+  Array.prototype.slice.call(wrap.querySelectorAll("svg")).forEach(function(s){ s.remove(); });
+
+  var traceOn = tracedPath != null && tracedPath >= 0 && tracedPath < res.nPaths;
+  var retH = traceOn ? 62 : 0, retGap = traceOn ? 20 : 0;
+  var W = Math.max(340, wrap.clientWidth), H = 442 + retH + retGap;
+  var M = { t: 18, r: 92, b: 40, l: 58 }, stripH = 50, gap = 22;
+  var plotH = H - M.t - M.b - stripH - gap - retH - retGap;
+  var plotB = M.t + plotH;             // baseline of the main plot
+  var stripT = plotB + gap, stripB = stripT + stripH;
+  var retT = stripB + retGap, retB = retT + retH;
+  var axisBase = traceOn ? retB : stripB;   // the x-axis sits under every strip
+  var N = an.N, S0 = res.S;
+  var innerW = W - M.l - M.r;
+  var svg = E("svg", { viewBox: "0 0 " + W + " " + H, width: W, height: H, role: "img",
+    "aria-label": "Fan chart of simulated liquid wealth by age, with the share of scenarios out of money below" });
+
+  var x = function(i){ return M.l + (N === 0 ? 0 : i / N * innerW); };
+
+  var bands = an.bands, med = bands[3];
+  var hi = 0;
+  for (var i = 0; i <= N; i++) if (bands[6][i] > hi) hi = bands[6][i];
+  hi = Math.max(hi, 100000);
+  var lo = Infinity;
+  for (i = 0; i <= N; i++) if (bands[0][i] > 0 && bands[0][i] < lo) lo = bands[0][i];
+  if (!isFinite(lo)) lo = 10000;
+  var logLo = Math.max(10000, Math.pow(10, Math.floor(Math.log10(lo * 0.8))));
+  var linMax = niceTicks(hi, 5); linMax = linMax[linMax.length - 1];
+
+  var y;
+  if (scaleMode === "log"){
+    var l0 = Math.log10(logLo), l1 = Math.log10(hi * 1.15);
+    y = function(v){ return plotB - (Math.log10(Math.max(v, logLo)) - l0) / (l1 - l0) * plotH; };
+  } else {
+    y = function(v){ return plotB - Math.min(v, linMax) / linMax * plotH; };
+  }
+
+  /* grid + y labels */
+  var yt = scaleMode === "log" ? logTicks(logLo, hi * 1.15) : niceTicks(linMax, 5);
+  yt.forEach(function(v){
+    var yy = y(v);
+    if (yy < M.t - 1 || yy > plotB + 1) return;
+    svg.appendChild(E("line", { class: "grid", x1: M.l, x2: W - M.r, y1: yy, y2: yy }));
+    svg.appendChild(E("text", { class: "ax", x: M.l - 9, y: yy + 3.5, "text-anchor": "end" },
+      v === 0 ? "0" : money(v)));
+  });
+
+  /* bands: 5–95, 10–90, 25–75, layered so likelihood reads as density */
+  [[0, 6], [1, 5], [2, 4]].forEach(function(pair){
+    var loB = bands[pair[0]], hiB = bands[pair[1]], d = "";
+    for (i = 0; i <= N; i++) d += (i ? "L" : "M") + x(i).toFixed(1) + "," + y(hiB[i]).toFixed(1);
+    for (i = N; i >= 0; i--) d += "L" + x(i).toFixed(1) + "," + y(loB[i]).toFixed(1);
+    svg.appendChild(E("path", { class: "band", d: d + "Z" }));
+  });
+
+  /* 10th-percentile guide line + median */
+  var d10 = "", dm = "";
+  for (i = 0; i <= N; i++){
+    d10 += (i ? "L" : "M") + x(i).toFixed(1) + "," + y(bands[1][i]).toFixed(1);
+    dm  += (i ? "L" : "M") + x(i).toFixed(1) + "," + y(med[i]).toFixed(1);
+  }
+  svg.appendChild(E("path", { class: "pline", d: d10 }));
+  svg.appendChild(E("path", { class: "medline", d: dm }));
+
+  /* retirement markers */
+  var marks = [];
+  var iy = Math.round(S0.youRetire - S0.youAge), ip = Math.round(S0.pRetire - S0.pAge);
+  if (iy === ip) marks.push({ i: iy, t: "both retire" });
+  else { marks.push({ i: iy, t: "you retire" }); marks.push({ i: ip, t: "partner retires" }); }
+  marks.forEach(function(mk){
+    if (mk.i < 0 || mk.i > N) return;
+    var xx = x(mk.i);
+    svg.appendChild(E("line", { class: "axis", x1: xx, x2: xx, y1: M.t, y2: axisBase, "stroke-dasharray": "3 3" }));
+    var anchor = xx > W - M.r - 90 ? "end" : "start";
+    svg.appendChild(E("text", { class: "anno", x: xx + (anchor === "end" ? -6 : 6), y: M.t + 9, "text-anchor": anchor }, mk.t));
+  });
+
+  /* axes */
+  svg.appendChild(E("line", { class: "axis", x1: M.l, x2: W - M.r, y1: plotB, y2: plotB }));
+
+  /* end labels — median and 10th, nudged apart if they collide */
+  var yMed = y(med[N]), y10 = y(bands[1][N]);
+  if (y10 - yMed < 15) y10 = yMed + 15;
+  svg.appendChild(E("text", { class: "lbl", x: W - M.r + 9, y: yMed + 4 }, money(med[N])));
+  svg.appendChild(E("text", { class: "axs", x: W - M.r + 9, y: yMed - 8 }, "MEDIAN"));
+  svg.appendChild(E("text", { class: "lbl2", x: W - M.r + 9, y: y10 + 4 }, money(bands[1][N])));
+  svg.appendChild(E("text", { class: "axs", x: W - M.r + 9, y: y10 + 15 }, "10TH PCTILE"));
+
+  /* depletion strip */
+  var maxRuin = 0;
+  for (i = 0; i <= N; i++) if (an.ruin[i] > maxRuin) maxRuin = an.ruin[i];
+  var ruinTop = Math.max(5, Math.ceil(maxRuin / 5) * 5);
+  var ry = function(v){ return stripB - v / ruinTop * stripH; };
+  svg.appendChild(E("line", { class: "grid", x1: M.l, x2: W - M.r, y1: stripT, y2: stripT }));
+  svg.appendChild(E("line", { class: "axis", x1: M.l, x2: W - M.r, y1: stripB, y2: stripB }));
+  if (maxRuin > 0){
+    var dr = "M" + x(0) + "," + stripB;
+    for (i = 0; i <= N; i++) dr += "L" + x(i).toFixed(1) + "," + ry(an.ruin[i]).toFixed(1);
+    svg.appendChild(E("path", { class: "ruin", d: dr + "L" + x(N) + "," + stripB + "Z" }));
+    var dl = "";
+    for (i = 0; i <= N; i++) dl += (i ? "L" : "M") + x(i).toFixed(1) + "," + ry(an.ruin[i]).toFixed(1);
+    svg.appendChild(E("path", { class: "ruinline", d: dl }));
+    svg.appendChild(E("text", { class: "lbl", x: W - M.r + 9, y: ry(an.ruin[N]) + 4,
+      style: "fill:var(--crit-ink)" }, pct(an.ruin[N], 1)));
+  } else {
+    svg.appendChild(E("text", { class: "anno", x: (M.l + W - M.r) / 2, y: stripT + stripH / 2 + 4,
+      "text-anchor": "middle" }, "no scenario runs out of money"));
+  }
+  svg.appendChild(E("text", { class: "ax", x: M.l - 9, y: stripT + 4, "text-anchor": "end" }, ruinTop + "%"));
+  svg.appendChild(E("text", { class: "ax", x: M.l - 9, y: stripB + 4, "text-anchor": "end" }, "0"));
+  svg.appendChild(E("text", { class: "anno", x: M.l, y: stripT - 7 }, "scenarios out of money"));
+
+  /* x axis — shared by the fan and the strip, so it sits beneath both */
+  var step = N <= 22 ? 5 : 10;
+  var firstAge = Math.ceil(S0.youAge / step) * step;
+  for (var a = firstAge; a <= S0.youAge + N; a += step){
+    var idx = a - S0.youAge, xx2 = x(idx);
+    svg.appendChild(E("line", { class: "axis", x1: xx2, x2: xx2, y1: axisBase, y2: axisBase + 4 }));
+    svg.appendChild(E("text", { class: "ax", x: xx2, y: axisBase + 17, "text-anchor": "middle" }, String(a)));
+    svg.appendChild(E("text", { class: "axs", x: xx2, y: axisBase + 28, "text-anchor": "middle",
+      "fill-opacity": ".7" }, String(NOW + idx)));
+  }
+
+  /* the one traced lifetime, drawn over the fan with a surface halo */
+  var traj = null, rets = null;
+  if (traceOn){
+    traj = pathTrajectory(res, tracedPath);
+    rets = pathReturns(res, tracedPath);
+    var dt = "";
+    for (i = 0; i <= N; i++) dt += (i ? "L" : "M") + x(i).toFixed(1) + "," + y(traj[i]).toFixed(1);
+    svg.appendChild(E("path", { class: "tracehalo", d: dt }));
+    svg.appendChild(E("path", { class: "traceline", d: dt }));
+    var fy = res.failAt[tracedPath];
+    if (fy >= 0){
+      svg.appendChild(E("circle", { cx: x(fy + 1), cy: y(0), r: 4.5, fill: "var(--crit)",
+        stroke: "var(--surface)", "stroke-width": 2 }));
+    }
+
+    /* annual returns for that lifetime — the sequence, which is the whole point */
+    var mag = 0.05;
+    for (i = 0; i < N; i++) if (isFinite(rets[i])) mag = Math.max(mag, Math.abs(rets[i]));
+    var midY = retT + retH / 2, half = retH / 2 - 8;
+    var bwR = Math.max(1, innerW / N - 1);
+    svg.appendChild(E("line", { class: "axis", x1: M.l, x2: W - M.r, y1: midY, y2: midY }));
+    for (i = 0; i < N; i++){
+      if (!isFinite(rets[i])) continue;
+      var hR = Math.abs(rets[i]) / mag * half;
+      var up = rets[i] >= 0;
+      svg.appendChild(E("rect", { x: x(i) + 0.5, y: up ? midY - hR : midY, width: bwR,
+        height: Math.max(0.7, hR), fill: up ? "rgb(var(--fan))" : "var(--crit)", "fill-opacity": .85 }));
+    }
+    svg.appendChild(E("text", { class: "anno", x: M.l, y: retT - 7 }, "that lifetime's annual returns"));
+    svg.appendChild(E("text", { class: "ax", x: M.l - 9, y: retT + 12, "text-anchor": "end" },
+      "+" + Math.round(mag * 100) + "%"));
+    svg.appendChild(E("text", { class: "ax", x: M.l - 9, y: retB - 4, "text-anchor": "end" },
+      "−" + Math.round(mag * 100) + "%"));
+  }
+
+  /* hover */
+  var g = E("g", { opacity: 0 });
+  var cl = E("line", { class: "cross", x1: 0, x2: 0, y1: M.t, y2: axisBase });
+  var dot = E("circle", { r: 4.5, fill: "var(--fan-line)", stroke: "var(--surface)", "stroke-width": 2 });
+  var dot2 = E("circle", { r: 3.5, fill: "rgb(var(--fan))", stroke: "var(--surface)", "stroke-width": 2 });
+  g.appendChild(cl); g.appendChild(dot); g.appendChild(dot2);
+  svg.appendChild(g);
+  var hit = E("rect", { class: "hit", x: M.l, y: M.t, width: innerW, height: axisBase - M.t });
+  svg.appendChild(hit);
+
+  function move(ev){
+    var r = svg.getBoundingClientRect();
+    var px = (ev.clientX - r.left) * (W / r.width);
+    var i = clamp(Math.round((px - M.l) / innerW * N), 0, N);
+    var xx = x(i);
+    cl.setAttribute("x1", xx); cl.setAttribute("x2", xx);
+    dot.setAttribute("cx", xx); dot.setAttribute("cy", y(med[i]));
+    dot2.setAttribute("cx", xx); dot2.setAttribute("cy", y(bands[1][i]));
+    g.setAttribute("opacity", 1);
+    var rows = [
+      ["95th", bands[6][i], .40], ["75th", bands[4][i], .30],
+      ["Median", bands[3][i], .22], ["25th", bands[2][i], .30], ["5th", bands[0][i], .40]
+    ];
+    var html = '<div class="th">Age ' + (S0.youAge + i) + " &middot; " + (NOW + i) + "</div>";
+    rows.forEach(function(rw){
+      html += '<div class="tr"><span class="sw" style="background:rgb(var(--fan));opacity:' + rw[2] +
+              '"></span><span class="k">' + rw[0] + '</span><span class="v">' + money(rw[1]) + "</span></div>";
+    });
+    html += '<div class="tr" style="margin-top:4px;padding-top:5px;border-top:1px solid var(--hair)">' +
+            '<span class="sw" style="background:var(--crit)"></span><span class="k">Out of money</span>' +
+            '<span class="v">' + pct(an.ruin[i], 1) + "</span></div>";
+    if (traceOn){
+      html += '<div class="tr"><span class="sw" style="background:var(--ink)"></span>' +
+              '<span class="k">This lifetime</span><span class="v">' + money(traj[i]) + "</span></div>";
+      if (i > 0 && isFinite(rets[i - 1]))
+        html += '<div class="tr"><span class="sw" style="background:transparent"></span>' +
+                '<span class="k" style="color:var(--muted)">its return that year</span><span class="v">' +
+                (rets[i-1] >= 0 ? "+" : "−") + Math.abs(rets[i-1] * 100).toFixed(1) + "%</span></div>";
+    }
+    tip.innerHTML = html;
+    tip.style.opacity = 1;
+    var scale = r.width / W;
+    var tw = tip.offsetWidth;
+    tip.style.left = clamp(xx * scale + 16, 4, r.width - tw - 4) + "px";
+    tip.style.top = "8px";
+  }
+  hit.addEventListener("pointermove", move);
+  hit.addEventListener("pointerdown", move);
+  hit.addEventListener("pointerleave", function(){ g.setAttribute("opacity", 0); tip.style.opacity = 0; });
+  wrap.insertBefore(svg, tip);
+
+  /* legend */
+  document.getElementById("fanLegend").innerHTML =
+    '<span class="it"><span class="sw" style="background:rgb(var(--fan));opacity:.11"></span>5th–95th</span>' +
+    '<span class="it"><span class="sw" style="background:rgb(var(--fan));opacity:.22"></span>10th–90th</span>' +
+    '<span class="it"><span class="sw" style="background:rgb(var(--fan));opacity:.33"></span>25th–75th</span>' +
+    '<span class="it"><span class="sw ln"></span>median path</span>' +
+    '<span class="it"><span class="sw" style="background:var(--crit);opacity:.5"></span>ran out of money</span>' +
+    (traceOn ? '<span class="it"><span class="sw" style="height:0;border-top:2px solid var(--ink);border-radius:0"></span>lifetime #' + tracedPath.toLocaleString("en-CA") + "</span>" : "") +
+    '<span class="it" style="color:var(--muted)">' + res.nPaths.toLocaleString("en-CA") + " paths &middot; today's dollars</span>";
+}
+
+/* ============================================================
+   Ending-wealth distribution
+   ============================================================ */
+function renderHist(res, an){
+  var wrap = document.getElementById("histWrap"), tip = document.getElementById("histTip");
+  Array.prototype.slice.call(wrap.querySelectorAll("svg")).forEach(function(s){ s.remove(); });
+  var W = Math.max(320, wrap.clientWidth), H = 270;
+  var M = { t: 22, r: 16, b: 40, l: 46 };
+  var pw = W - M.l - M.r, ph = H - M.t - M.b, plotB = M.t + ph;
+  var svg = E("svg", { viewBox: "0 0 " + W + " " + H, width: W, height: H, role: "img",
+    "aria-label": "Distribution of liquid wealth at the end of the plan" });
+
+  var end = an.ending, n = end.length;
+  var top = q(end, 0.97);
+  if (!(top > 0)) top = 1;
+  var NB = 26, bw = top / NB;
+  var counts = new Array(NB + 1).fill(0), zeros = 0;
+  for (var i = 0; i < n; i++){
+    var v = end[i];
+    if (v <= 0){ zeros++; counts[0]++; continue; }
+    var b = Math.min(NB, Math.floor(v / bw));
+    counts[b]++;
+  }
+  var maxC = 0; for (i = 0; i <= NB; i++) if (counts[i] > maxC) maxC = counts[i];
+  var yh = function(c){ return c / maxC * ph; };
+  var slotW = pw / (NB + 1);
+
+  niceTicks(maxC / n * 100, 3).forEach(function(p){
+    var yy = plotB - p / 100 * n / maxC * ph;
+    if (yy < M.t - 1) return;
+    svg.appendChild(E("line", { class: "grid", x1: M.l, x2: W - M.r, y1: yy, y2: yy }));
+    svg.appendChild(E("text", { class: "ax", x: M.l - 8, y: yy + 3.5, "text-anchor": "end" }, p.toFixed(0) + "%"));
+  });
+
+  for (i = 0; i <= NB; i++){
+    if (!counts[i]) continue;
+    var bx = M.l + i * slotW, h = yh(counts[i]);
+    var w = Math.max(2, Math.min(24, slotW - 2));
+    var off = (slotW - w) / 2;
+    if (i === 0 && zeros){
+      var zh = yh(zeros), rest = h - zh;
+      if (rest > 0.5) svg.appendChild(E("path", { class: "bar", d: barPath(bx + off, plotB - h, w, rest - 2, 4),
+        fill: "rgb(var(--fan))" }));
+      svg.appendChild(E("path", { class: "bar", d: barPath(bx + off, plotB - zh, w, zh, rest > 0.5 ? 0 : 4),
+        fill: "var(--crit)", "fill-opacity": .85 }));
+    } else {
+      svg.appendChild(E("path", { class: "bar", d: barPath(bx + off, plotB - h, w, h, 4), fill: "rgb(var(--fan))" }));
+    }
+    (function(idx, bxx, ww){
+      var hitR = E("rect", { x: bxx, y: M.t, width: slotW, height: ph, fill: "transparent" });
+      hitR.addEventListener("pointerenter", function(){
+        var loV = idx * bw, hiV = (idx + 1) * bw;
+        var label = idx === NB ? "over " + money(loV) : money(loV) + " – " + money(hiV);
+        var html = '<div class="th">' + label + "</div>" +
+          '<div class="tr"><span class="sw" style="background:rgb(var(--fan))"></span><span class="k">Scenarios</span>' +
+          '<span class="v">' + pct(counts[idx] / n * 100, 1) + "</span></div>";
+        if (idx === 0 && zeros) html += '<div class="tr"><span class="sw" style="background:var(--crit)"></span>' +
+          '<span class="k">Ran dry</span><span class="v">' + pct(zeros / n * 100, 1) + "</span></div>";
+        tip.innerHTML = html; tip.style.opacity = 1;
+        var r = svg.getBoundingClientRect(), scale = r.width / W;
+        tip.style.left = clamp(bxx * scale - 60, 4, r.width - tip.offsetWidth - 4) + "px";
+        tip.style.top = "0px";
+      });
+      hitR.addEventListener("pointerleave", function(){ tip.style.opacity = 0; });
+      svg.appendChild(hitR);
+    })(i, bx, w);
+  }
+  svg.appendChild(E("line", { class: "axis", x1: M.l, x2: W - M.r, y1: plotB, y2: plotB }));
+
+  /* median marker */
+  var medV = q(end, 0.5);
+  var mx = M.l + clamp(medV / bw, 0, NB + 0.5) * slotW + slotW / 2;
+  svg.appendChild(E("line", { x1: mx, x2: mx, y1: M.t - 8, y2: plotB, stroke: "var(--ink)",
+    "stroke-width": 1, "stroke-opacity": .55 }));
+  var anch = mx > W - M.r - 100 ? "end" : "start";
+  svg.appendChild(E("text", { class: "lbl", x: mx + (anch === "end" ? -6 : 6), y: M.t - 10, "text-anchor": anch },
+    "median " + money(medV)));
+
+  for (var t = 0; t <= 4; t++){
+    var v2 = top * t / 4, xx = M.l + (v2 / bw) * slotW;
+    svg.appendChild(E("text", { class: "ax", x: xx, y: plotB + 16, "text-anchor": "middle" }, money(v2)));
+  }
+  svg.appendChild(E("text", { class: "anno", x: M.l, y: H - 4 }, "liquid wealth at age " + res.S.planAge));
+  wrap.insertBefore(svg, tip);
+
+  document.getElementById("histLegend").innerHTML =
+    '<span class="it"><span class="sw" style="background:rgb(var(--fan))"></span>share of scenarios</span>' +
+    (zeros ? '<span class="it"><span class="sw" style="background:var(--crit)"></span>ran out of money (' +
+      pct(zeros / n * 100, 1) + ")</span>" : "") +
+    '<span class="it" style="color:var(--muted)">right-hand bar collects everything above ' + money(top) + "</span>";
+}
+
+/* ============================================================
+   Sensitivity tornado
+   ============================================================ */
+function sensitivity(base){
+  var paths = 2000, seed = base.seed + 101;
+  var b = successOnly(base, paths, seed);
+  function v(over){ return successOnly(Object.assign({}, base, over), paths, seed) - b; }
+  var rows = [
+    { name: "Average return",    loT: "−1.5pp", hiT: "+1.5pp",
+      lo: v({ realReturn: Math.max(0, base.realReturn - 1.5) }), hi: v({ realReturn: base.realReturn + 1.5 }) },
+    { name: "Volatility",        loT: "−5pp",   hiT: "+5pp",
+      lo: v({ vol: Math.max(2, base.vol - 5) }), hi: v({ vol: base.vol + 5 }) },
+    { name: "Annual spending",   loT: "−$25k",  hiT: "+$25k",
+      lo: v({ spend: Math.max(10000, base.spend - 25000) }), hi: v({ spend: base.spend + 25000 }) },
+    { name: "You retire",        loT: "5 yrs earlier", hiT: "5 yrs later",
+      lo: v({ youRetire: Math.max(base.youAge, base.youRetire - 5) }), hi: v({ youRetire: base.youRetire + 5 }) },
+    { name: "Partner retires",   loT: "5 yrs earlier", hiT: "5 yrs later",
+      lo: v({ pRetire: Math.max(base.pAge, base.pRetire - 5) }), hi: v({ pRetire: base.pRetire + 5 }) },
+    { name: "Starting assets",   loT: "−$1M",   hiT: "+$1M",
+      lo: v({ youAssets: Math.max(0, base.youAssets - 1000000) }), hi: v({ youAssets: base.youAssets + 1000000 }) },
+    { name: "Tax on withdrawals", loT: "−5pp",  hiT: "+5pp",
+      lo: v({ retTax: Math.max(0, base.retTax - 5) }), hi: v({ retTax: base.retTax + 5 }) },
+    { name: "Live to",           loT: "5 yrs younger", hiT: "5 yrs older",
+      lo: v({ planAge: Math.max(70, base.planAge - 5) }), hi: v({ planAge: base.planAge + 5 }) }
+  ];
+  rows.sort(function(a, c){
+    return Math.max(Math.abs(c.lo), Math.abs(c.hi)) - Math.max(Math.abs(a.lo), Math.abs(a.hi));
+  });
+  return { base: b, rows: rows };
+}
+
+function renderTornado(sens){
+  var wrap = document.getElementById("tornadoWrap"), tip = document.getElementById("tornadoTip");
+  Array.prototype.slice.call(wrap.querySelectorAll("svg")).forEach(function(s){ s.remove(); });
+  if (!sens){ wrap.style.opacity = .35; return; }
+  wrap.style.opacity = 1;
+  var rows = sens.rows;
+  var W = Math.max(320, wrap.clientWidth), rowH = 30, H = rows.length * rowH + 46;
+  var M = { t: 20, r: 12, b: 22, l: 132 };
+  var pw = W - M.l - M.r;
+  var svg = E("svg", { viewBox: "0 0 " + W + " " + H, width: W, height: H, role: "img",
+    "aria-label": "Change in survival odds when each assumption is moved on its own" });
+
+  var maxD = 0.5;
+  rows.forEach(function(r){ maxD = Math.max(maxD, Math.abs(r.lo), Math.abs(r.hi)); });
+  var cx = M.l + pw / 2;
+  var sx = function(d){ return (d / maxD) * (pw / 2 - 34); };
+
+  svg.appendChild(E("line", { class: "axis", x1: cx, x2: cx, y1: M.t - 8, y2: H - M.b + 2 }));
+  svg.appendChild(E("text", { class: "anno", x: cx, y: M.t - 12, "text-anchor": "middle" }, "no change"));
+
+  rows.forEach(function(r, i){
+    var yTop = M.t + i * rowH;
+    svg.appendChild(E("text", { class: "lbl2", x: M.l - 12, y: yTop + 15, "text-anchor": "end",
+      style: 'font-family:"IBM Plex Sans",sans-serif' }, r.name));
+    [[r.lo, r.loT, 0], [r.hi, r.hiT, 12]].forEach(function(pair){
+      var d = pair[0], w = Math.abs(sx(d)), dir = d >= 0 ? 1 : -1;
+      var yy = yTop + 2 + pair[2];
+      var color = d >= 0 ? "rgb(var(--fan))" : "var(--crit)";
+      if (w < 0.6) w = 0.6;
+      var p = E("path", { d: hBarPath(cx, yy, w, 10, 4, dir), fill: color, "fill-opacity": .9, class: "bar" });
+      svg.appendChild(p);
+      var lx = cx + dir * (w + 5);
+      svg.appendChild(E("text", { class: "ax", x: lx, y: yy + 8.5, "text-anchor": dir > 0 ? "start" : "end" },
+        (d >= 0 ? "+" : "−") + Math.abs(d).toFixed(1)));
+      p.addEventListener("pointerenter", function(){
+        tip.innerHTML = '<div class="th">' + r.name + "</div>" +
+          '<div class="tr"><span class="sw" style="background:' + color + '"></span><span class="k">' +
+          pair[1] + '</span><span class="v">' + (d >= 0 ? "+" : "−") + Math.abs(d).toFixed(1) + "pp</span></div>" +
+          '<div class="tr"><span class="k" style="color:var(--muted)">Survival odds</span><span class="v">' +
+          pct(sens.base + d, 1) + "</span></div>";
+        tip.style.opacity = 1;
+        var rct = svg.getBoundingClientRect(), scale = rct.width / W;
+        tip.style.left = clamp(cx * scale - 80, 4, rct.width - tip.offsetWidth - 4) + "px";
+        tip.style.top = Math.max(0, yy * scale - 60) + "px";
+      });
+      p.addEventListener("pointerleave", function(){ tip.style.opacity = 0; });
+    });
+  });
+  wrap.insertBefore(svg, tip);
+  document.getElementById("tornadoLegend").innerHTML =
+    '<span class="it"><span class="sw" style="background:rgb(var(--fan))"></span>better odds</span>' +
+    '<span class="it"><span class="sw" style="background:var(--crit)"></span>worse odds</span>' +
+    '<span class="it" style="color:var(--muted)">percentage points, from a base of ' + pct(sens.base, 1) +
+    ' &middot; each row moves one assumption, upper bar first</span>';
+}
+
+/* ============================================================
+   Readouts
+   ============================================================ */
+var safeSpend = null, safeSpendPending = true, lastSens = null, lastRes = null, lastAn = null;
+
+function retireIndex(){
+  return Math.max(0, Math.round(Math.max(S.youRetire - S.youAge, S.pRetire - S.pAge)));
+}
+function updateVerdict(res, an){
+  var s = res.success;
+  document.getElementById("successVal").textContent = s >= 99.95 ? "100%" : pct(s, 1);
+  var meter = document.getElementById("successMeter");
+  meter.style.width = s + "%";
+  meter.style.background = s >= 95 ? "var(--good)" : s >= 85 ? "var(--warn)" : "var(--crit)";
+  document.getElementById("successCap").textContent =
+    an.fails.length
+      ? an.fails.length.toLocaleString("en-CA") + " of " + res.nPaths.toLocaleString("en-CA") + " lifetimes ran dry"
+      : "none of " + res.nPaths.toLocaleString("en-CA") + " lifetimes ran dry";
+
+  var cls = s >= 95 ? "ok" : s >= 85 ? "warn" : "bad";
+  var label = s >= 95 ? "Comfortably funded" : s >= 85 ? "Funded, with a real tail" : "Underfunded as specified";
+  document.getElementById("verdictPill").innerHTML =
+    '<span class="pill ' + cls + '"><span class="dot"></span>' + label + "</span>";
+
+  var iRet = Math.min(retireIndex(), an.N);
+  var pre = res.pre;
+  var medRet = an.bands[3][iRet];
+  var draw = Math.max(0, pre.outflow[Math.min(iRet, pre.N - 1)] - pre.income[Math.min(iRet, pre.N - 1)]);
+  var wr = medRet > 0 ? draw / medRet * 100 : 0;
+  var lastAge = S.youAge + an.N;
+  var p5 = an.bands[0][an.N];
+
+  var t = "";
+  if (S.youRetire <= S.youAge && S.pRetire <= S.pAge) t += "Neither of you works another day. ";
+  else if (S.youRetire === S.pRetire) t += "You both stop at <b>" + S.youRetire + "</b>. ";
+  else t += "You stop at <b>" + S.youRetire + "</b>, your partner at <b>" + S.pRetire + "</b>. ";
+  t += "From then the plan draws about <b>" + money(draw) + "</b> a year against a median <b>" +
+       money(medRet) + "</b> — a <b>" + pct(wr, 1) + "</b> first-year withdrawal. ";
+  if (an.fails.length){
+    t += "In " + pct(100 - res.success, 1) + " of futures the money runs out, the earliest at age <b>" +
+         (S.youAge + an.fails[0]) + "</b>. ";
+  } else {
+    t += "Even the unluckiest run still has <b>" + money(an.ending[0]) + "</b> left at " + lastAge + ". ";
+  }
+  t += "The gloomiest twentieth of futures ends at <b>" + money(p5) + "</b>; the median at <b>" +
+       money(an.bands[3][an.N]) + "</b>.";
+  document.getElementById("verdictNote").innerHTML = t;
+}
+
+function updateTiles(res, an){
+  var pre = res.pre, iRet = Math.min(retireIndex(), an.N);
+  var medRet = an.bands[3][iRet];
+  var j = Math.min(iRet, pre.N - 1);
+  var draw = Math.max(0, pre.outflow[j] - pre.income[j]);
+  var wr = medRet > 0 ? draw / medRet * 100 : 0;
+  var lastAge = S.youAge + an.N;
+  var tiles = [
+    { k: "Median at " + lastAge, v: money(q(an.ending, 0.5)), s: "half of futures end above this" },
+    { k: "Bottom tenth at " + lastAge, v: money(q(an.ending, 0.10)), s: "one future in ten ends below" },
+    { k: "Portfolio when both retire", v: money(medRet), s: "median, at age " + (S.youAge + iRet) },
+    { k: "First-year withdrawal", v: draw > 0 ? pct(wr, 1) : "—", s: draw > 0 ? money(draw) + " of " + money(medRet) : "still saving" },
+    { k: "Safe spending", v: safeSpend == null ? "…"
+        : (safeSpendPending ? '<span style="opacity:.4">' + money(safeSpend) + "</span>" : money(safeSpend)),
+      s: "keeps 90% odds, " + (S.spendIncludesMortgage ? "mortgage included" : "before the mortgage") },
+    { k: "Earliest run dry", v: an.fails.length ? "age " + (S.youAge + an.fails[0]) : "never",
+      s: an.fails.length ? pct(100 - res.success, 1) + " of futures fail" : "across all " + res.nPaths.toLocaleString("en-CA") + " paths" }
+  ];
+  document.getElementById("tiles").innerHTML = tiles.map(function(t){
+    return '<div class="tile"><span class="k">' + t.k + '</span><span class="v num">' + t.v +
+           '</span><span class="s">' + t.s + "</span></div>";
+  }).join("");
+}
+
+function updateCashflow(res){
+  var pre = res.pre;
+  var take = pre.income[0];
+  var mort = pre.mortReal[0];
+  var other = pre.outflow[0] - mort;
+  var net = pre.net[0];
+  var rate = take > 0 ? net / take * 100 : 0;
+  var rows = [
+    ["Take-home income", money(take), ""],
+    ["Mortgage", "−" + money(mort), ""],
+    ["Everything else", "−" + money(other), ""]
+  ];
+  var html = rows.map(function(r){
+    return '<div class="cfrow"><span class="k">' + r[0] + '</span><span class="v">' + r[1] + "</span></div>";
+  }).join("");
+  html += '<div class="cfrow total"><span class="k">' + (net >= 0 ? "Saving this year" : "Drawing down") +
+          '</span><span class="v" style="color:' + (net >= 0 ? "var(--good-ink)" : "var(--crit-ink)") + '">' +
+          money(Math.abs(net)) + "</span></div>";
+  html += '<div class="cfrow"><span class="k" style="color:var(--muted);font-size:11px">' +
+          (net >= 0 ? Math.round(rate) + "% of take-home pay" : "portfolio covers the gap") + "</span></div>";
+  document.getElementById("cashflow").innerHTML = html;
+}
+
+function updateSummaries(res){
+  function set(id, txt){ var e = document.getElementById(id); if (e) e.textContent = txt; }
+  set("sum-you", S.youAge + " · " + money(S.youIncome) + " · to " + S.youRetire);
+  set("sum-partner", S.pAge + " · " + money(S.pIncome) + " · to " + S.pRetire);
+  set("sum-money", money(S.youAssets + S.pAssets) + " · " + money(S.spend) + "/yr");
+  set("sum-home", money(S.homeValue - S.mortBal) + " equity");
+  set("sum-markets", S.realReturn.toFixed(1) + "% ± " + S.vol.toFixed(0) + "%" + (S.fatTails ? " · fat" : ""));
+  updateDragNote();
+  set("sum-gov", S.cppPct ? "CPP " + S.cppPct + "% at " + S.cppStart + (S.oas ? " + OAS" : "") : "none");
+  set("sum-events", S.events.filter(function(e){ return e.on; }).length + " on");
+  set("sum-sim", S.paths.toLocaleString("en-CA") + " paths · to " + S.planAge);
+}
+
+function updateTable(res, an){
+  var N = an.N, step = N > 30 ? 5 : 2, rows = [];
+  for (var i = 0; i <= N; i += step) rows.push(i);
+  if (rows[rows.length - 1] !== N) rows.push(N);
+  var h = '<table class="data"><thead><tr><th>Age</th><th>Year</th><th>5th</th><th>25th</th>' +
+          "<th>Median</th><th>75th</th><th>95th</th><th>Out of money</th></tr></thead><tbody>";
+  rows.forEach(function(i){
+    h += "<tr><td>" + (S.youAge + i) + "</td><td>" + (NOW + i) + "</td><td>" +
+      money(an.bands[0][i]) + "</td><td>" + money(an.bands[2][i]) + "</td><td>" +
+      money(an.bands[3][i]) + "</td><td>" + money(an.bands[4][i]) + "</td><td>" +
+      money(an.bands[6][i]) + "</td><td>" + pct(an.ruin[i], 1) + "</td></tr>";
+  });
+  document.getElementById("fanTable").innerHTML = h + "</tbody></table>";
+}
+
+/* ============================================================
+   Notes
+   ============================================================ */
+document.getElementById("notes").innerHTML = [
+  "<p><b>Everything is in today's dollars.</b> Returns are entered net of inflation, so a $150k lifestyle stays a $150k lifestyle for sixty years. Nothing on this page needs mental deflating.</p>",
+  "<p><b>Returns are drawn, not assumed.</b> Each year of each lifetime gets its own random return: lognormal around your <i>arithmetic</i> average, at your volatility, minus fees and drag. Because volatility drags compounding, the typical path grows more slowly than the number you typed — the panel under the volatility slider shows by how much. Turn on fat tails and the draws come from a Student-t (ν&nbsp;=&nbsp;5) instead — same average, far more 2008s. Volatility is entered as the standard deviation of the return itself and converted to the lognormal's log scale, and shocks past six standard deviations are clipped. Years are independent; no momentum, no mean reversion.</p>",
+  "<p><b>Sequence risk is the whole point.</b> Two lifetimes with identical average returns end in very different places depending on <i>when</i> the bad years land. That is why the fan widens and why a few paths hit zero while the average looks fine.</p>",
+  "<p><b>Money moves at the start of the year, returns apply after.</b> A withdrawal misses that year's growth — mildly conservative, which is the right direction to be wrong in.</p>",
+  "<p><b>Tax while working</b> is federal plus Ontario, with the Ontario surtax, the health premium and CPP/EI, on employment income. It ignores RRSP deductions, dividend and capital-gains treatment, and anything corporate — so take-home is understated if you are contributing to registered accounts.</p>",
+  "<p><b>Tax in retirement</b> is one blended rate applied to withdrawals, not an account-by-account model. Your TFSA comes out untaxed, your RRSP comes out fully taxed, your taxable account only on the gain — the single rate is the average of that mix. It is the crudest number here; move it and watch the tornado.</p>",
+  "<p><b>The mortgage amortizes for real</b>, month by month, at your rate until renewal and the renewal rate after. The payment is nominal, so inflation quietly shrinks it in real terms — that is the only place inflation is used.</p>",
+  "<p><b>Home equity sits outside the portfolio.</b> The fan only tracks liquid investments, because that is what pays the bills. If you plan to convert the house into spendable money, add it as a <i>money in</i> life event.</p>",
+  "<p><b>CPP and OAS</b> are indexed, so they are constant in real terms, adjusted for starting early or late. OAS is off by default: at this level of drawdown the recovery tax is likely to take most of it.</p>",
+  "<p><b>What the model cannot know:</b> a divorce, a disability, a business exit, a decade of inflation the portfolio does not outrun, or the possibility that expected returns for the next thirty years are simply lower than the last hundred. A 97% success rate is 97% <i>conditional on this model being right</i>.</p>"
+].join("");
+document.getElementById("disclaimer").textContent =
+  "Built for thinking, not for filing. Nothing here is investment, tax or legal advice — rates and benefit amounts are approximations current to 2026 and should be checked against your actual returns and statements.";
+
+/* ============================================================
+   Pipeline
+   ============================================================ */
+var applyingPreset = false, slowTimer = null, resizeTimer = null;
+
+function render(){
+  var t0 = (window.performance && performance.now) ? performance.now() : Date.now();
+  var res = simulate(S, S.paths, S.seed);
+  var an = analyse(res);
+  lastRes = res; lastAn = an;
+  if (tracedPath != null && tracedPath >= res.nPaths) tracedPath = null;
+  renderFan(res, an);
+  renderHist(res, an);
+  updateVerdict(res, an);
+  updateTiles(res, an);
+  updateCashflow(res);
+  updateSummaries(res);
+  updateTable(res, an);
+  buildTraceBar();
+  var t1 = (window.performance && performance.now) ? performance.now() : Date.now();
+  document.getElementById("runmeta").textContent =
+    res.nPaths.toLocaleString("en-CA") + " paths · " + an.N + " years · seed " + S.seed +
+    " · " + Math.round(t1 - t0) + " ms";
+}
+function scheduleSlow(){
+  if (slowTimer) clearTimeout(slowTimer);
+  safeSpendPending = true;
+  renderTornado(null);
+  slowTimer = setTimeout(function(){
+    var snapshot = clone(S);
+    safeSpend = solveSafeSpend(snapshot, 90, 1000, snapshot.seed + 37);
+    safeSpendPending = false;
+    if (lastRes && lastAn) updateTiles(lastRes, lastAn);
+    lastSens = sensitivity(snapshot);
+    renderTornado(lastSens);
+  }, 280);
+}
+function onChange(){
+  if (!applyingPreset) clearPreset();
+  save();
+  render();
+  scheduleSlow();
+}
+
+/* scale toggle */
+(function(){
+  var seg = document.getElementById("scaleSeg");
+  seg.addEventListener("click", function(e){
+    var b = e.target.closest("button");
+    if (!b) return;
+    scaleMode = b.dataset.v;
+    Array.prototype.forEach.call(seg.children, function(c){
+      c.setAttribute("aria-pressed", c === b ? "true" : "false");
+    });
+    if (lastRes) renderFan(lastRes, lastAn);
+  });
+})();
+
+/* redraw charts on resize, without re-simulating */
+if (window.ResizeObserver){
+  var ro = new ResizeObserver(function(){
+    if (resizeTimer) clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function(){
+      if (!lastRes) return;
+      renderFan(lastRes, lastAn);
+      renderHist(lastRes, lastAn);
+      renderTornado(lastSens);
+    }, 120);
+  });
+  ro.observe(document.querySelector(".results"));
+}
+
+/* the compound growth the drawn returns actually deliver */
+var dragNote = document.createElement("div");
+dragNote.className = "cashflow";
+dragNote.style.cssText = "margin:2px 0 0;padding:9px 11px";
+function updateDragNote(){
+  var g = (Math.exp(logParams(S).muLog) - 1) * 100;
+  dragNote.innerHTML =
+    '<div class="cfrow"><span class="k">Median compound growth</span><span class="v">' + pct(g, 2) + "</span></div>" +
+    '<div class="cfrow"><span class="k" style="color:var(--muted);font-size:11px">' +
+    S.realReturn.toFixed(1) + "% average, less " + S.drag.toFixed(2) + "% drag and " +
+    pct(S.realReturn - S.drag - g, 2) + " of volatility drag</span></div>";
+}
+
+/* go */
+buildPresets();
+buildControls();
+(function(){
+  var mk = document.querySelector('.grp-body[data-group="markets"]');
+  if (mk) mk.appendChild(dragNote);
+})();
+buildEvents();
+render();
+scheduleSlow();
+})();
+</script>
