@@ -1,3 +1,9 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="A Monte Carlo retirement simulator: 5,000 simulated lifetimes for a two-person household, redrawn on every slider move.">
 <title>Sequence Risk</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -80,6 +86,7 @@
 }
 
 *{box-sizing:border-box}
+p{margin:0}
 body{
   margin:0;
   background:var(--plane);
@@ -160,15 +167,15 @@ button{font:inherit;color:inherit}
 .field-top{display:flex;align-items:baseline;gap:8px}
 .field-top label{font-size:12.5px;color:var(--ink-2);flex:1 1 auto}
 .field-top .hint{color:var(--muted);font-size:11px}
-.field input[type="number"]{
+.field-top input{
   width:98px;text-align:right;padding:3px 7px;border:1px solid var(--hair-2);border-radius:6px;
   background:var(--surface-2);color:var(--ink);
   font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;font-size:12.5px;font-weight:500;
   -moz-appearance:textfield;
 }
-.field input[type="number"]::-webkit-outer-spin-button,
-.field input[type="number"]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
-.field input[type="number"]:focus{border-color:var(--accent-2);background:var(--surface)}
+.field-top input::-webkit-outer-spin-button,
+.field-top input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.field-top input:focus{border-color:var(--accent-2);background:var(--surface)}
 
 input[type="range"]{
   -webkit-appearance:none;appearance:none;width:100%;height:16px;background:transparent;margin:0;cursor:grab;
@@ -233,13 +240,13 @@ input[type="range"]:hover::-moz-range-thumb{background:var(--accent-2)}
 .ev.off{opacity:.5}
 .ev-name{font-size:12.5px;font-weight:500}
 .ev-sub{grid-column:2;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
-.ev-sub input[type="number"]{
+.ev-sub input[type="text"]{
   width:78px;padding:2px 6px;font-size:11.5px;text-align:right;border:1px solid var(--hair-2);
   border-radius:5px;background:var(--surface);color:var(--ink);
   font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;-moz-appearance:textfield;
 }
-.ev-sub input[type="number"]::-webkit-outer-spin-button,
-.ev-sub input[type="number"]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.ev-sub input[type="text"]::-webkit-outer-spin-button,
+.ev-sub input[type="text"]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 .ev-sub .lb{font-size:10.5px;color:var(--muted);letter-spacing:.03em}
 .ev-check{appearance:none;-webkit-appearance:none;width:15px;height:15px;border-radius:4px;
   border:1.5px solid var(--hair-2);background:var(--surface);cursor:pointer;position:relative;flex:none}
@@ -359,6 +366,31 @@ table.data td:first-child{font-family:"IBM Plex Sans",sans-serif;color:var(--ink
 
 @media (prefers-reduced-motion: reduce){ *{transition:none !important;animation:none !important} }
 </style>
+
+<style>
+svg text{font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+svg .ax{fill:var(--muted);font-size:10.5px}
+svg .axs{fill:var(--muted);font-size:9.5px;letter-spacing:.05em}
+svg .lbl{fill:var(--ink);font-size:11px;font-weight:500}
+svg .lbl2{fill:var(--ink-2);font-size:10.5px}
+svg .anno{fill:var(--muted);font-size:10px;letter-spacing:.04em;text-transform:uppercase;
+  font-family:"IBM Plex Sans",sans-serif}
+svg .grid{stroke:var(--grid);stroke-width:1}
+svg .axis{stroke:var(--axis);stroke-width:1}
+svg .band{fill:rgb(var(--fan));fill-opacity:.11}
+svg .medline{stroke:var(--fan-line);stroke-width:2;fill:none;stroke-linejoin:round;stroke-linecap:round}
+svg .pline{stroke:rgb(var(--fan));stroke-width:1;fill:none;stroke-opacity:.55}
+svg .ruin{fill:var(--crit);fill-opacity:.2}
+svg .ruinline{stroke:var(--crit);stroke-width:2;fill:none;stroke-linejoin:round}
+svg .cross{stroke:var(--ink);stroke-width:1;stroke-opacity:.45}
+svg .hit{fill:transparent;cursor:crosshair}
+svg .tracehalo{stroke:var(--surface);stroke-width:5;fill:none;stroke-linejoin:round;stroke-opacity:.9}
+svg .traceline{stroke:var(--ink);stroke-width:2;fill:none;stroke-linejoin:round;stroke-linecap:round}
+svg .bar{transition:fill-opacity .1s}
+svg .bar:hover{fill-opacity:.75}
+</style>
+</head>
+<body>
 
 <div class="app">
   <header class="topbar">
@@ -505,28 +537,6 @@ table.data td:first-child{font-family:"IBM Plex Sans",sans-serif;color:var(--ink
   </div>
 </div>
 
-<style>
-svg text{font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
-svg .ax{fill:var(--muted);font-size:10.5px}
-svg .axs{fill:var(--muted);font-size:9.5px;letter-spacing:.05em}
-svg .lbl{fill:var(--ink);font-size:11px;font-weight:500}
-svg .lbl2{fill:var(--ink-2);font-size:10.5px}
-svg .anno{fill:var(--muted);font-size:10px;letter-spacing:.04em;text-transform:uppercase;
-  font-family:"IBM Plex Sans",sans-serif}
-svg .grid{stroke:var(--grid);stroke-width:1}
-svg .axis{stroke:var(--axis);stroke-width:1}
-svg .band{fill:rgb(var(--fan));fill-opacity:.11}
-svg .medline{stroke:var(--fan-line);stroke-width:2;fill:none;stroke-linejoin:round;stroke-linecap:round}
-svg .pline{stroke:rgb(var(--fan));stroke-width:1;fill:none;stroke-opacity:.55}
-svg .ruin{fill:var(--crit);fill-opacity:.2}
-svg .ruinline{stroke:var(--crit);stroke-width:2;fill:none;stroke-linejoin:round}
-svg .cross{stroke:var(--ink);stroke-width:1;stroke-opacity:.45}
-svg .hit{fill:transparent;cursor:crosshair}
-svg .tracehalo{stroke:var(--surface);stroke-width:5;fill:none;stroke-linejoin:round;stroke-opacity:.9}
-svg .traceline{stroke:var(--ink);stroke-width:2;fill:none;stroke-linejoin:round;stroke-linecap:round}
-svg .bar{transition:fill-opacity .1s}
-svg .bar:hover{fill-opacity:.75}
-</style>
 
 <script>
 (function(){
@@ -1908,3 +1918,6 @@ render();
 scheduleSlow();
 })();
 </script>
+
+</body>
+</html>
