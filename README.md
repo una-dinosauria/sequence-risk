@@ -52,10 +52,16 @@ Real (inflation-adjusted) dollars throughout, so nothing needs mental deflating.
 - **Cash flows move at the start of the year**, returns apply after — mildly
   conservative on withdrawals.
 
-Fixed spending is the model's least realistic assumption: real retirees cut
-discretionary spending in bad years, which materially improves the odds. Adding
-that needs a spending floor and a second reported metric (how deep the cuts went,
-and for how long), or "success" trivially approaches 100%.
+- **Flexible spending** (off by default) lets retirees cut back in bad markets.
+  Each lifetime tracks its own market index against its previous high. Once both
+  are retired, a fall past the *start* threshold (default 10%) begins trimming
+  lifestyle spending. The cut deepens in a straight line to the *deepest cut*
+  (default 20%) at the second threshold (default 35%), and eases as the market
+  recovers. The mortgage and life events are never cut, and each year's cut is
+  set from where the market stood at the start of that year. Because flexing
+  inflates the survival odds, the page also reports the price of those odds:
+  spending given up, years spent cutting, and the deepest cut. It also draws the
+  share of lifetimes cutting beneath the fan.
 
 ## Tests
 

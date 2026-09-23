@@ -53,5 +53,37 @@ const lean = t.simulate(Object.assign({}, S, { spend: 90000 }), 2000, 7).success
 const rich = t.simulate(Object.assign({}, S, { spend: 400000 }), 2000, 7).success;
 ok("spending more cannot improve the odds", rich <= lean, rich.toFixed(1) + "% vs " + lean.toFixed(1) + "%");
 
+// 6. flexible spending: cuts only ever reduce withdrawals, so with common
+//    random numbers they cannot make any lifetime end poorer
+const F = Object.assign({}, S, { flex: true, youRetire: 50, pRetire: 50 });
+const rigid = t.simulate(Object.assign({}, F, { flex: false }), 3000, 7), flexed = t.simulate(F, 3000, 7);
+let poorer = 0;
+for (let i = 0; i < rigid.vals.length; i++) if (flexed.vals[i] < rigid.vals[i] - 1e-6) poorer++;
+ok("flexing never leaves a lifetime poorer", poorer === 0, poorer + " path-years poorer");
+ok("flexing cannot lower the odds", flexed.success >= rigid.success,
+  flexed.success.toFixed(1) + "% vs " + rigid.success.toFixed(1) + "%");
+ok("successOnly agrees with simulate under flex",
+  Math.abs(t.successOnly(F, 3000, 7) - flexed.success) < 1e-9);
+const fan = t.analyse(flexed);
+ok("no cut deeper than the setting", fan.flex.deepest[fan.n - 1] <= F.flexCut / 100 + 1e-12,
+  (fan.flex.deepest[fan.n - 1] * 100).toFixed(1) + "% max");
+ok("some lifetimes cut", fan.flex.ever > 0, fan.flex.ever.toFixed(1) + "% ever cut");
+let noCutWorking = true;
+for (let y = 0; y < flexed.N; y++) if (!flexed.pre.retired[y] && flexed.cutting[y] > 0) noCutWorking = false;
+ok("no cuts before both retire", noCutWorking);
+
+// 7. returns still replay exactly from a flexed trajectory
+const fp = t.pickPath("fail", fan), fr = t.pathReturns(flexed, fp), ft = t.pathTrajectory(flexed, fp);
+let fport = flexed.pre.startPort, ferr = 0;
+for (let y = 0; y < flexed.N; y++) {
+  const nf = flexed.pre.net[y] + flexed.cut[y * flexed.nPaths + fp];
+  let mid = nf >= 0 ? fport + nf : fport - (-nf) * grossUp;
+  if (mid <= 0) mid = 0;
+  if (!isFinite(fr[y])) { fport = 0; continue; }
+  fport = mid * (1 + fr[y]);
+  ferr = Math.max(ferr, Math.abs(fport - ft[y + 1]) / Math.max(1, ft[y + 1]));
+}
+ok("flexed path returns replay the trajectory", ferr < 1e-12, "max rel. error " + ferr.toExponential(2));
+
 console.log(bad ? "\n" + bad + " check(s) failed" : "\nall checks passed");
 process.exit(bad ? 1 : 0);

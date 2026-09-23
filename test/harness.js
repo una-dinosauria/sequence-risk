@@ -38,7 +38,7 @@ const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
 const src = html.match(/<script>([\s\S]*)<\/script>/)[1].replace(
   "})();\n",
   "globalThis.__t={simulate,analyse,precompute,afterTaxIncome,mortgageSchedule,logParams," +
-  "solveSafeSpend,sensitivity,money,pathTrajectory,pathReturns,pickPath,clamp,get S(){return S}};\n})();\n"
+  "solveSafeSpend,successOnly,sensitivity,money,q,pathTrajectory,pathReturns,pickPath,clamp,get S(){return S}};\n})();\n"
 );
 eval(src);
 module.exports = globalThis.__t;

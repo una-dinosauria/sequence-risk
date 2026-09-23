@@ -428,6 +428,11 @@ svg .bar:hover{fill-opacity:.75}
       <div class="cashflow" id="cashflow"></div>
 
       <details class="grp">
+        <summary><i class="caret"></i>Flexible spending<span class="sum" id="sum-flex"></span></summary>
+        <div class="grp-body" data-group="flex"></div>
+      </details>
+
+      <details class="grp">
         <summary><i class="caret"></i>Home &amp; mortgage<span class="sum" id="sum-home"></span></summary>
         <div class="grp-body" data-group="home"></div>
       </details>
@@ -658,7 +663,8 @@ function precompute(S){
 
   var net = new Float64Array(N), income = new Float64Array(N),
       outflow = new Float64Array(N), mortReal = new Float64Array(N),
-      equity = new Float64Array(N + 1), retired = new Uint8Array(N);
+      equity = new Float64Array(N + 1), retired = new Uint8Array(N),
+      flexBase = new Float64Array(N);
   equity[0] = S.homeValue - S.mortBal;
 
   for (var y = 0; y < N; y++){
@@ -672,6 +678,8 @@ function precompute(S){
     var bothRet = (ay >= S.youRetire) && (ap >= S.pRetire);
     retired[y] = bothRet ? 1 : 0;
     var spend = core * (bothRet ? S.retSpendPct / 100 : 1);
+    // only the retirement lifestyle can flex — never the mortgage or a life event
+    flexBase[y] = bothRet ? spend : 0;
     for (var e = 0; e < S.events.length; e++){
       var ev = S.events[e];
       if (!ev.on) continue;
@@ -686,7 +694,7 @@ function precompute(S){
                 - sched[y].balEnd / Math.pow(1 + infl, y+1);
   }
   return { N:N, net:net, income:income, outflow:outflow, mortReal:mortReal, sched:sched,
-           equity:equity, retired:retired, core:core, youNet:youNet, pNet:pNet,
+           equity:equity, retired:retired, flexBase:flexBase, core:core, youNet:youNet, pNet:pNet,
            startPort: S.youAssets + S.pAssets };
 }
 // CPP is reduced 0.6%/month before 65 and increased 0.7%/month after.
@@ -703,6 +711,21 @@ function logParams(S){
   return { muLog: Math.log(base) - s2 / 2, sLog: Math.sqrt(s2) };
 }
 
+/* ---------- flexible spending ----------
+   Each lifetime tracks its own market index against its high-water mark.
+   Once both are retired, a drop past flexStart begins trimming the lifestyle
+   part of spending, reaching the deepest cut (flexCut) at a drop of flexFull.
+   The cut is set from the drawdown at the start of the year — no lookahead. */
+function flexParams(S){
+  if (!S.flex || !(S.flexCut > 0)) return null;
+  var a = clamp(S.flexStart, 0, 90) / 100, b = Math.max(S.flexFull / 100, a + 0.01);
+  return { start: a, span: b - a, cut: clamp(S.flexCut, 0, 100) / 100 };
+}
+function flexCutFrac(fx, idx, peak){
+  var dd = 1 - idx / peak;
+  return dd > fx.start ? fx.cut * Math.min(1, (dd - fx.start) / fx.span) : 0;
+}
+
 /* ---------- the simulation ---------- */
 function simulate(S, nPaths, seed, pre){
   pre = pre || precompute(S);
@@ -710,16 +733,29 @@ function simulate(S, nPaths, seed, pre){
   var lp = logParams(S), muLog = lp.muLog, sLog = lp.sLog;
   var df = 5, tScale = Math.sqrt((df - 2) / df), fat = !!S.fatTails;
   var grossUp = 1 / (1 - clamp(S.retTax/100, 0, 0.7));
+  var fx = flexParams(S), fb = pre.flexBase;
 
   var vals = new Float64Array((N + 1) * nPaths);
   var failAt = new Int16Array(nPaths);
+  var cut = fx ? new Float64Array(N * nPaths) : null;   // dollars trimmed, per year per path
+  var cutYears = fx ? new Int16Array(nPaths) : null;
+  var cutDeepest = fx ? new Float64Array(nPaths) : null; // deepest cut, as a fraction of planned
+  var cutting = new Float64Array(N);                     // paths cutting, per year
   var survivors = 0;
 
   for (var p = 0; p < nPaths; p++){
-    var port = pre.startPort, fail = -1;
+    var port = pre.startPort, fail = -1, idx = 1, peak = 1;
     vals[p] = port;
     for (var y = 0; y < N; y++){
       var nf = pre.net[y];
+      if (fx && fb[y] > 0 && fail < 0){
+        var cf = flexCutFrac(fx, idx, peak);
+        if (cf > 0){
+          var c = fb[y] * cf;
+          nf += c; cut[y * nPaths + p] = c; cutting[y]++; cutYears[p]++;
+          if (cf > cutDeepest[p]) cutDeepest[p] = cf;
+        }
+      }
       if (nf >= 0) port += nf;
       else port -= (-nf) * grossUp;
       if (port <= 0){ port = 0; if (fail < 0) fail = y; }
@@ -729,13 +765,16 @@ function simulate(S, nPaths, seed, pre){
         z = gauss() / Math.sqrt(c / df) * tScale;
       } else z = gauss();
       if (z > 6) z = 6; else if (z < -6) z = -6;   // exp(sigma*t) has no finite mean
-      port *= Math.exp(muLog + sLog * z);
+      var gr = Math.exp(muLog + sLog * z);
+      port *= gr;
+      idx *= gr; if (idx > peak) peak = idx;
       vals[(y + 1) * nPaths + p] = port;
     }
     failAt[p] = fail;
     if (fail < 0) survivors++;
   }
   return { N:N, nPaths:nPaths, vals:vals, failAt:failAt,
+           cut:cut, cutYears:cutYears, cutDeepest:cutDeepest, cutting:cutting,
            success: survivors / nPaths * 100, pre:pre, S:S };
 }
 function successOnly(S, nPaths, seed){
@@ -743,18 +782,22 @@ function successOnly(S, nPaths, seed){
   var lp = logParams(S), muLog = lp.muLog, sLog = lp.sLog;
   var df = 5, tScale = Math.sqrt((df-2)/df), fat = !!S.fatTails;
   var grossUp = 1 / (1 - clamp(S.retTax/100, 0, 0.7));
+  var fx = flexParams(S), fb = pre.flexBase;
   var ok = 0;
   for (var p = 0; p < nPaths; p++){
-    var port = pre.startPort, alive = true;
+    var port = pre.startPort, alive = true, idx = 1, peak = 1;
     for (var y = 0; y < N; y++){
       var nf = pre.net[y];
+      if (fx && fb[y] > 0 && alive) nf += fb[y] * flexCutFrac(fx, idx, peak);
       if (nf >= 0) port += nf; else port -= (-nf) * grossUp;
       if (port <= 0){ port = 0; alive = false; }
       var z;
       if (fat){ var c = 0; for (var i = 0; i < df; i++){ var g = gauss(); c += g*g; }
         z = gauss() / Math.sqrt(c/df) * tScale; } else z = gauss();
       if (z > 6) z = 6; else if (z < -6) z = -6;
-      port *= Math.exp(muLog + sLog * z);
+      var gr = Math.exp(muLog + sLog * z);
+      port *= gr;
+      idx *= gr; if (idx > peak) peak = idx;
     }
     if (alive) ok++;
   }
@@ -792,8 +835,32 @@ function analyse(res){
   for (var p = 0; p < n; p++) if (res.failAt[p] >= 0){ fails.push(res.failAt[p]); failList.push(p); }
   fails.sort(function(a,b){ return a - b; });
   failList.sort(function(a,b){ return res.failAt[a] - res.failAt[b]; });
+  // how often, how long and how deep the spending cuts went
+  var flex = null;
+  if (res.cut){
+    var yrs = Float64Array.from(res.cutYears).sort();
+    var deep = Float64Array.from(res.cutDeepest).sort();
+    var ever = 0; for (p = 0; p < n; p++) if (res.cutYears[p] > 0) ever++;
+    var share = new Float64Array(N + 1);
+    for (y = 0; y < N; y++) share[y + 1] = res.cutting[y] / n * 100;   // aligned to wealth at start of y+1
+    var planned = 0, plannedTotal = 0, retYears = 0;
+    for (y = 0; y < N; y++) if (res.pre.flexBase[y] > 0){
+      if (!planned) planned = res.pre.flexBase[y];
+      plannedTotal += res.pre.flexBase[y]; retYears++;
+    }
+    // share of planned retirement lifestyle spending each lifetime gave up
+    var given = new Float64Array(n);
+    if (plannedTotal > 0) for (p = 0; p < n; p++){
+      var c = 0;
+      for (y = 0; y < N; y++) c += res.cut[y * n + p];
+      given[p] = c / plannedTotal;
+    }
+    given.sort();
+    flex = { years: yrs, deepest: deep, given: given, ever: ever / n * 100, share: share,
+             planned: planned, retYears: retYears };
+  }
   return { bands:bands, ruin:ruin, ending:ending, fails:fails, failList:failList, order:order,
-           maxRuin: ruin[N], N:N, n:n };
+           maxRuin: ruin[N], flex:flex, N:N, n:n };
 }
 function q(sortedArr, p){
   var n = sortedArr.length;
@@ -824,6 +891,7 @@ var DEFAULTS = {
   renewYear: NOW + 2, renewRate: 4.75, amortYears: 22, homeGrowth: 1.0,
   realReturn: 5.0, vol: 15.0, drag: 0.4, retTax: 18, inflation: 2.2, fatTails: false,
   cppPct: 100, cppStart: 65, oas: false,
+  flex: false, flexStart: 10, flexFull: 35, flexCut: 20,
   planAge: 95, paths: 5000, seed: 7,
   events: [
     { on:false, name:"Kids — the expensive years", age:40, years:18, amount:24000, inflow:false },
@@ -887,6 +955,14 @@ var FIELDS = [
   { g:"money", k:"retSpendPct", label:"Spending once both retire", min:50, max:140, step:1, kind:"pct0",
     hint:"of today's" },
 
+  { g:"flex", k:"flex",      label:"Cut spending when markets fall", kind:"toggle",
+    hint:"once both retire" },
+  { g:"flex", k:"flexStart", label:"Start cutting at a drop of", min:0, max:50, step:1, kind:"pct0",
+    hint:"below the peak" },
+  { g:"flex", k:"flexFull",  label:"Deepest cut at a drop of",   min:5, max:70, step:1, kind:"pct0" },
+  { g:"flex", k:"flexCut",   label:"Deepest cut",                min:0, max:50, step:1, kind:"pct0",
+    hint:"of retirement spending" },
+
   { g:"home", k:"homeValue",  label:"Home value",              min:0, max:6000000, step:25000, kind:"money" },
   { g:"home", k:"mortBal",    label:"Mortgage balance",         min:0, max:3000000, step:10000, kind:"money" },
   { g:"home", k:"mortRate",   label:"Rate until renewal",       min:0, max:12, step:0.01, kind:"pct2" },
@@ -923,7 +999,8 @@ var PRESETS = [
   { name:"Stop today", set:{ youRetire:40, pRetire:40 } },
   { name:"Spend $130k", set:{ spend:130000 } },
   { name:"Kids + upsize", set:{ spend:112000, evOn:[0,1,2] } },
-  { name:"Rough century", set:{ realReturn:3.5, vol:19, fatTails:true, retTax:24 } }
+  { name:"Rough century", set:{ realReturn:3.5, vol:19, fatTails:true, retTax:24 } },
+  { name:"Tighten in bad years", set:{ flex:true } }
 ];
 
 /* ============================================================
@@ -1174,7 +1251,7 @@ function pathReturns(res, p){
   var pre = res.pre, N = pre.N, nP = res.nPaths, out = new Float64Array(N);
   var grossUp = 1 / (1 - clamp(res.S.retTax / 100, 0, 0.7));
   for (var y = 0; y < N; y++){
-    var before = res.vals[y * nP + p], nf = pre.net[y];
+    var before = res.vals[y * nP + p], nf = pre.net[y] + (res.cut ? res.cut[y * nP + p] : 0);
     var mid = nf >= 0 ? before + nf : before - (-nf) * grossUp;
     out[y] = mid > 0 ? res.vals[(y + 1) * nP + p] / mid - 1 : NaN;
   }
@@ -1264,6 +1341,15 @@ function updateTraceNote(){
   if (isFinite(worst))
     t += "Worst three-year stretch <b>" + fmtR(worst - 1) + "</b> at ages " +
          (S0.youAge + wi) + "–" + (S0.youAge + wi + 2) + ". ";
+  if (res.cut){
+    var ny = res.cutYears[tracedPath];
+    if (ny){
+      var deepY = 0;
+      for (var cy = 1; cy < N; cy++) if (res.cut[cy * res.nPaths + tracedPath] > res.cut[deepY * res.nPaths + tracedPath]) deepY = cy;
+      t += "Spent below plan in <b>" + ny + "</b> year" + (ny === 1 ? "" : "s") + ", deepest <b>−" +
+           money(res.cut[deepY * res.nPaths + tracedPath]) + "</b> at " + (S0.youAge + deepY) + ". ";
+    } else t += "Never had to cut spending. ";
+  }
   t += res.failAt[tracedPath] >= 0
     ? '<b style="color:var(--crit-ink)">Ran dry at ' + (S0.youAge + res.failAt[tracedPath]) + ".</b>"
     : "Ended at <b>" + money(traj[N]) + "</b>.";
@@ -1369,9 +1455,10 @@ function renderFan(res, an){
   svg.appendChild(E("text", { class: "axs", x: W - M.r + 9, y: y10 + 15 }, "10TH PCTILE"));
 
   /* depletion strip */
-  var maxRuin = 0;
+  var maxRuin = 0, fl = an.flex, maxCut = 0;
   for (i = 0; i <= N; i++) if (an.ruin[i] > maxRuin) maxRuin = an.ruin[i];
-  var ruinTop = Math.max(5, Math.ceil(maxRuin / 5) * 5);
+  if (fl) for (i = 0; i <= N; i++) if (fl.share[i] > maxCut) maxCut = fl.share[i];
+  var ruinTop = Math.max(5, Math.ceil(Math.max(maxRuin, maxCut) / 5) * 5);
   var ry = function(v){ return stripB - v / ruinTop * stripH; };
   svg.appendChild(E("line", { class: "grid", x1: M.l, x2: W - M.r, y1: stripT, y2: stripT }));
   svg.appendChild(E("line", { class: "axis", x1: M.l, x2: W - M.r, y1: stripB, y2: stripB }));
@@ -1384,13 +1471,20 @@ function renderFan(res, an){
     svg.appendChild(E("path", { class: "ruinline", d: dl }));
     svg.appendChild(E("text", { class: "lbl", x: W - M.r + 9, y: ry(an.ruin[N]) + 4,
       style: "fill:var(--crit-ink)" }, pct(an.ruin[N], 1)));
-  } else {
+  } else if (!maxCut){
     svg.appendChild(E("text", { class: "anno", x: (M.l + W - M.r) / 2, y: stripT + stripH / 2 + 4,
       "text-anchor": "middle" }, "no scenario runs out of money"));
   }
+  if (maxCut > 0){
+    var dc = "";
+    for (i = 0; i <= N; i++) dc += (i ? "L" : "M") + x(i).toFixed(1) + "," + ry(fl.share[i]).toFixed(1);
+    svg.appendChild(E("path", { d: dc, fill: "none", stroke: "var(--warn)", "stroke-width": 2,
+      "stroke-dasharray": "4 3", "stroke-linejoin": "round" }));
+  }
   svg.appendChild(E("text", { class: "ax", x: M.l - 9, y: stripT + 4, "text-anchor": "end" }, ruinTop + "%"));
   svg.appendChild(E("text", { class: "ax", x: M.l - 9, y: stripB + 4, "text-anchor": "end" }, "0"));
-  svg.appendChild(E("text", { class: "anno", x: M.l, y: stripT - 7 }, "scenarios out of money"));
+  svg.appendChild(E("text", { class: "anno", x: M.l, y: stripT - 7 },
+    fl ? "scenarios out of money · cutting spending" : "scenarios out of money"));
 
   /* x axis — shared by the fan and the strip, so it sits beneath both */
   var step = N <= 22 ? 5 : 10;
@@ -1469,6 +1563,9 @@ function renderFan(res, an){
     html += '<div class="tr" style="margin-top:4px;padding-top:5px;border-top:1px solid var(--hair)">' +
             '<span class="sw" style="background:var(--crit)"></span><span class="k">Out of money</span>' +
             '<span class="v">' + pct(an.ruin[i], 1) + "</span></div>";
+    if (fl && i > 0)
+      html += '<div class="tr"><span class="sw" style="background:var(--warn)"></span><span class="k">Cutting spending</span>' +
+              '<span class="v">' + pct(fl.share[i], 1) + "</span></div>";
     if (traceOn){
       html += '<div class="tr"><span class="sw" style="background:var(--ink)"></span>' +
               '<span class="k">This lifetime</span><span class="v">' + money(traj[i]) + "</span></div>";
@@ -1476,6 +1573,10 @@ function renderFan(res, an){
         html += '<div class="tr"><span class="sw" style="background:transparent"></span>' +
                 '<span class="k" style="color:var(--muted)">its return that year</span><span class="v">' +
                 (rets[i-1] >= 0 ? "+" : "−") + Math.abs(rets[i-1] * 100).toFixed(1) + "%</span></div>";
+      if (res.cut && i > 0 && res.cut[(i - 1) * res.nPaths + tracedPath] > 0)
+        html += '<div class="tr"><span class="sw" style="background:transparent"></span>' +
+                '<span class="k" style="color:var(--muted)">its spending cut</span><span class="v">−' +
+                money(res.cut[(i - 1) * res.nPaths + tracedPath]) + "</span></div>";
     }
     tip.innerHTML = html;
     tip.style.opacity = 1;
@@ -1496,6 +1597,7 @@ function renderFan(res, an){
     '<span class="it"><span class="sw" style="background:rgb(var(--fan));opacity:.33"></span>25th–75th</span>' +
     '<span class="it"><span class="sw ln"></span>median path</span>' +
     '<span class="it"><span class="sw" style="background:var(--crit);opacity:.5"></span>ran out of money</span>' +
+    (an.flex ? '<span class="it"><span class="sw" style="height:0;border-top:2px dashed var(--warn);border-radius:0"></span>cutting spending</span>' : "") +
     (traceOn ? '<span class="it"><span class="sw" style="height:0;border-top:2px solid var(--ink);border-radius:0"></span>lifetime #' + tracedPath.toLocaleString("en-CA") + "</span>" : "") +
     '<span class="it" style="color:var(--muted)">' + res.nPaths.toLocaleString("en-CA") + " paths &middot; today's dollars</span>";
 }
@@ -1617,6 +1719,9 @@ function sensitivity(base){
     { name: "Live to",           loT: "5 yrs younger", hiT: "5 yrs older",
       lo: v({ planAge: Math.max(70, base.planAge - 5) }), hi: v({ planAge: base.planAge + 5 }) }
   ];
+  if (base.flex) rows.push(
+    { name: "Spending cuts",     loT: "never cut", hiT: "10pp deeper",
+      lo: v({ flex: false }), hi: v({ flexCut: Math.min(50, base.flexCut + 10) }) });
   rows.sort(function(a, c){
     return Math.max(Math.abs(c.lo), Math.abs(c.hi)) - Math.max(Math.abs(a.lo), Math.abs(a.hi));
   });
@@ -1725,6 +1830,14 @@ function updateVerdict(res, an){
   }
   t += "The gloomiest twentieth of futures ends at <b>" + money(p5) + "</b>; the median at <b>" +
        money(an.bands[3][an.N]) + "</b>.";
+  var fl = an.flex;
+  if (fl){
+    t += fl.ever > 0
+      ? " Those odds are bought with cuts: the median lifetime gives up <b>" + pct(q(fl.given, 0.5) * 100, 1) +
+        "</b> of its planned retirement spending, and one in ten gives up <b>" + pct(q(fl.given, 0.9) * 100, 1) +
+        "</b> or more, spending below plan for <b>" + q(fl.years, 0.9) + "</b>+ years."
+      : " No lifetime ever had to cut spending.";
+  }
   document.getElementById("verdictNote").innerHTML = t;
 }
 
@@ -1742,10 +1855,21 @@ function updateTiles(res, an){
     { k: "First-year withdrawal", v: draw > 0 ? pct(wr, 1) : "—", s: draw > 0 ? money(draw) + " of " + money(medRet) : "still saving" },
     { k: "Safe spending", v: safeSpend == null ? "…"
         : (safeSpendPending ? '<span style="opacity:.4">' + money(safeSpend) + "</span>" : money(safeSpend)),
-      s: "keeps 90% odds, " + (S.spendIncludesMortgage ? "mortgage included" : "before the mortgage") },
+      s: "keeps 90% odds, " + (S.flex ? "planned, before cuts" : S.spendIncludesMortgage ? "mortgage included" : "before the mortgage") },
     { k: "Earliest run dry", v: an.fails.length ? "age " + (S.youAge + an.fails[0]) : "never",
       s: an.fails.length ? pct(100 - res.success, 1) + " of futures fail" : "across all " + res.nPaths.toLocaleString("en-CA") + " paths" }
   ];
+  var fl = an.flex;
+  if (fl){
+    var y50 = q(fl.years, 0.5), y90 = q(fl.years, 0.9), d90 = q(fl.deepest, 0.9);
+    tiles.push(
+      { k: "Spending given up", v: pct(q(fl.given, 0.5) * 100, 1),
+        s: "of planned, median; one in ten: " + pct(q(fl.given, 0.9) * 100, 1) + "+" },
+      { k: "Years spent cutting", v: y50 + (y50 === 1 ? " yr" : " yrs"),
+        s: "median of " + fl.retYears + " retired; one in ten: " + y90 + "+" },
+      { k: "Deepest cut", v: d90 > 0 ? "−" + money(fl.planned * d90) : "none",
+        s: d90 > 0 ? "−" + pct(d90 * 100, 0) + " of plan, for one lifetime in ten" : "90% of lifetimes never cut" });
+  }
   document.getElementById("tiles").innerHTML = tiles.map(function(t){
     return '<div class="tile"><span class="k">' + t.k + '</span><span class="v num">' + t.v +
            '</span><span class="s">' + t.s + "</span></div>";
@@ -1780,6 +1904,8 @@ function updateSummaries(res){
   set("sum-you", S.youAge + " · " + money(S.youIncome) + " · to " + S.youRetire);
   set("sum-partner", S.pAge + " · " + money(S.pIncome) + " · to " + S.pRetire);
   set("sum-money", money(S.youAssets + S.pAssets) + " · " + money(S.spend) + "/yr");
+  set("sum-flex", S.flex ? "up to −" + S.flexCut + "%" : "off");
+  updateFlexNote();
   set("sum-home", money(S.homeValue - S.mortBal) + " equity");
   set("sum-markets", S.realReturn.toFixed(1) + "% ± " + S.vol.toFixed(0) + "%" + (S.fatTails ? " · fat" : ""));
   updateDragNote();
@@ -1792,13 +1918,16 @@ function updateTable(res, an){
   var N = an.N, step = N > 30 ? 5 : 2, rows = [];
   for (var i = 0; i <= N; i += step) rows.push(i);
   if (rows[rows.length - 1] !== N) rows.push(N);
+  var fl = an.flex;
   var h = '<table class="data"><thead><tr><th>Age</th><th>Year</th><th>5th</th><th>25th</th>' +
-          "<th>Median</th><th>75th</th><th>95th</th><th>Out of money</th></tr></thead><tbody>";
+          "<th>Median</th><th>75th</th><th>95th</th><th>Out of money</th>" +
+          (fl ? "<th>Cutting</th>" : "") + "</tr></thead><tbody>";
   rows.forEach(function(i){
     h += "<tr><td>" + (S.youAge + i) + "</td><td>" + (NOW + i) + "</td><td>" +
       money(an.bands[0][i]) + "</td><td>" + money(an.bands[2][i]) + "</td><td>" +
       money(an.bands[3][i]) + "</td><td>" + money(an.bands[4][i]) + "</td><td>" +
-      money(an.bands[6][i]) + "</td><td>" + pct(an.ruin[i], 1) + "</td></tr>";
+      money(an.bands[6][i]) + "</td><td>" + pct(an.ruin[i], 1) + "</td>" +
+      (fl ? "<td>" + pct(fl.share[i], 1) + "</td>" : "") + "</tr>";
   });
   document.getElementById("fanTable").innerHTML = h + "</tbody></table>";
 }
@@ -1811,6 +1940,7 @@ document.getElementById("notes").innerHTML = [
   "<p><b>Returns are drawn, not assumed.</b> Each year of each lifetime gets its own random return: lognormal around your <i>arithmetic</i> average, at your volatility, minus fees and drag. Because volatility drags compounding, the typical path grows more slowly than the number you typed — the panel under the volatility slider shows by how much. Turn on fat tails and the draws come from a Student-t (ν&nbsp;=&nbsp;5) instead — same average, far more 2008s. Volatility is entered as the standard deviation of the return itself and converted to the lognormal's log scale, and shocks past six standard deviations are clipped. Years are independent; no momentum, no mean reversion.</p>",
   "<p><b>Sequence risk is the whole point.</b> Two lifetimes with identical average returns end in very different places depending on <i>when</i> the bad years land. That is why the fan widens and why a few paths hit zero while the average looks fine.</p>",
   "<p><b>Money moves at the start of the year, returns apply after.</b> A withdrawal misses that year's growth — mildly conservative, which is the right direction to be wrong in.</p>",
+  "<p><b>Spending can flex, if you let it.</b> Turn on flexible spending and each lifetime watches its own market against its previous high. Once you are both retired, a fall past the first threshold starts trimming your lifestyle spending, deepening in a straight line to the deepest cut at the second threshold, and easing off as the market recovers. The mortgage and life events are never cut. Flexing makes the survival odds look better, so read them with the tiles showing how many years you spent cutting and how deep the cuts went — that is the price of those odds.</p>",
   "<p><b>Tax while working</b> is federal plus Ontario, with the Ontario surtax, the health premium and CPP/EI, on employment income. It ignores RRSP deductions, dividend and capital-gains treatment, and anything corporate — so take-home is understated if you are contributing to registered accounts.</p>",
   "<p><b>Tax in retirement</b> is one blended rate applied to withdrawals, not an account-by-account model. Your TFSA comes out untaxed, your RRSP comes out fully taxed, your taxable account only on the gain — the single rate is the average of that mix. It is the crudest number here; move it and watch the tornado.</p>",
   "<p><b>The mortgage amortizes for real</b>, month by month, at your rate until renewal and the renewal rate after. The payment is nominal, so inflation quietly shrinks it in real terms — that is the only place inflation is used.</p>",
@@ -1906,12 +2036,33 @@ function updateDragNote(){
     pct(S.realReturn - S.drag - g, 2) + " of volatility drag</span></div>";
 }
 
+/* the spending floor the flex rule can reach */
+var flexNote = document.createElement("div");
+flexNote.className = "cashflow";
+flexNote.style.cssText = "margin:2px 0 0;padding:9px 11px";
+function updateFlexNote(){
+  var planned = S.spend, pre = lastRes && lastRes.pre;
+  if (pre) for (var y = 0; y < pre.N; y++) if (pre.flexBase[y] > 0){ planned = pre.flexBase[y]; break; }
+  var floor = planned * (1 - S.flexCut / 100);
+  flexNote.style.opacity = S.flex ? 1 : .45;
+  flexNote.innerHTML =
+    '<div class="cfrow"><span class="k">Spending floor in retirement</span><span class="v">' + money(floor) + "</span></div>" +
+    '<div class="cfrow"><span class="k" style="color:var(--muted);font-size:11px">' + money(planned) +
+    " planned, cut up to " + S.flexCut + "% — mortgage and life events are paid in full</span></div>";
+  ["flexStart", "flexFull", "flexCut"].forEach(function(k){
+    var r = controlRefs[k], w = r && r.rng && r.rng.parentNode;
+    if (w) w.style.opacity = S.flex ? 1 : .45;
+  });
+}
+
 /* go */
 buildPresets();
 buildControls();
 (function(){
   var mk = document.querySelector('.grp-body[data-group="markets"]');
   if (mk) mk.appendChild(dragNote);
+  var fg = document.querySelector('.grp-body[data-group="flex"]');
+  if (fg) fg.appendChild(flexNote);
 })();
 buildEvents();
 render();
