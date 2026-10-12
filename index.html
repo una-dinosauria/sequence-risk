@@ -577,6 +577,11 @@ function parseNum(str){
 function clamp(v, lo, hi){ return v < lo ? lo : v > hi ? hi : v; }
 
 /* ---------- random ---------- */
+// Each lifetime gets its own stream, so its market history depends only on the
+// seed and its number — not on how many years the lifetimes before it used.
+function pathSeed(seed, p){
+  return Math.imul(seed | 0, 0x9E3779B1) ^ Math.imul(p + 1, 0x85EBCA77);
+}
 function mulberry32(a){
   return function(){
     a |= 0; a = a + 0x6D2B79F5 | 0;
@@ -729,7 +734,7 @@ function flexCutFrac(fx, idx, peak){
 /* ---------- the simulation ---------- */
 function simulate(S, nPaths, seed, pre){
   pre = pre || precompute(S);
-  var N = pre.N, rnd = mulberry32(seed), gauss = makeGauss(rnd);
+  var N = pre.N, gauss;
   var lp = logParams(S), muLog = lp.muLog, sLog = lp.sLog;
   var df = 5, tScale = Math.sqrt((df - 2) / df), fat = !!S.fatTails;
   var grossUp = 1 / (1 - clamp(S.retTax/100, 0, 0.7));
@@ -745,6 +750,7 @@ function simulate(S, nPaths, seed, pre){
 
   for (var p = 0; p < nPaths; p++){
     var port = pre.startPort, fail = -1, idx = 1, peak = 1;
+    gauss = makeGauss(mulberry32(pathSeed(seed, p)));
     vals[p] = port;
     for (var y = 0; y < N; y++){
       var nf = pre.net[y];
@@ -778,7 +784,7 @@ function simulate(S, nPaths, seed, pre){
            success: survivors / nPaths * 100, pre:pre, S:S };
 }
 function successOnly(S, nPaths, seed){
-  var pre = precompute(S), N = pre.N, rnd = mulberry32(seed), gauss = makeGauss(rnd);
+  var pre = precompute(S), N = pre.N, gauss;
   var lp = logParams(S), muLog = lp.muLog, sLog = lp.sLog;
   var df = 5, tScale = Math.sqrt((df-2)/df), fat = !!S.fatTails;
   var grossUp = 1 / (1 - clamp(S.retTax/100, 0, 0.7));
@@ -786,6 +792,7 @@ function successOnly(S, nPaths, seed){
   var ok = 0;
   for (var p = 0; p < nPaths; p++){
     var port = pre.startPort, alive = true, idx = 1, peak = 1;
+    gauss = makeGauss(mulberry32(pathSeed(seed, p)));
     for (var y = 0; y < N; y++){
       var nf = pre.net[y];
       if (fx && fb[y] > 0 && alive) nf += fb[y] * flexCutFrac(fx, idx, peak);
@@ -901,13 +908,33 @@ var DEFAULTS = {
     { on:false, name:"Long-term care",             age:87, years:8,  amount:90000, inflow:false }
   ]
 };
-var S = fromHash() || load() || clone(DEFAULTS);
+var S;   // set once the field definitions below exist, since merge() checks against them
 
 function clone(o){ return JSON.parse(JSON.stringify(o)); }
+// Saved state and shared links are untrusted: every value is coerced to the
+// type and range its control allows, so nothing but a finite number, a boolean
+// or a short plain string ever reaches the page.
 function merge(o){
   var base = clone(DEFAULTS);
-  for (var k in base) if (o[k] !== undefined) base[k] = o[k];
-  if (!Array.isArray(base.events) || !base.events.length) base.events = clone(DEFAULTS.events);
+  if (!o || typeof o !== "object") return base;
+  FIELDS.forEach(function(f){
+    var v = o[f.k];
+    if (v === undefined) return;
+    if (f.kind === "toggle"){ base[f.k] = v === true; return; }
+    v = Number(v);
+    if (!isFinite(v)) return;
+    if (f.kind === "int") v = Math.round(v);
+    base[f.k] = clamp(v, f.min, f.max);
+  });
+  if (Array.isArray(o.events)){
+    var evs = o.events.filter(function(e){ return e && typeof e === "object"; }).slice(0, 40).map(function(e){
+      var num = function(v, d){ v = Number(v); return isFinite(v) ? v : d; };
+      return { on: e.on === true, name: String(e.name == null ? "Event" : e.name).slice(0, 80),
+               age: clamp(Math.round(num(e.age, 65)), 20, 105), years: clamp(Math.round(num(e.years, 1)), 1, 60),
+               amount: Math.max(0, num(e.amount, 0)), inflow: e.inflow === true };
+    });
+    if (evs.length) base.events = evs;
+  }
   return base;
 }
 // A scenario lives in the URL fragment, which never reaches a server — so a
@@ -1002,6 +1029,14 @@ var PRESETS = [
   { name:"Rough century", set:{ realReturn:3.5, vol:19, fatTails:true, retTax:24 } },
   { name:"Tighten in bad years", set:{ flex:true } }
 ];
+
+S = fromHash() || load() || clone(DEFAULTS);
+// Once a shared link has been read, drop it from the address bar: otherwise it
+// outranks localStorage, and a reload throws away every edit made since.
+function clearHash(){
+  try { history.replaceState(null, "", location.href.split("#")[0]); } catch(e){}
+}
+if (fromHash()) clearHash();
 
 /* ============================================================
    Control rendering
@@ -1174,7 +1209,7 @@ function clearPreset(){
 }
 document.getElementById("shareLink").addEventListener("click", function(){
   var btn = this, box = document.getElementById("shareBox");
-  var url = location.origin + location.pathname + "#s=" + encodeHash();
+  var url = location.href.split("#")[0] + "#s=" + encodeHash();
   function reveal(msg){
     btn.textContent = msg;
     setTimeout(function(){ btn.textContent = "Copy a link holding these numbers"; }, 2400);
@@ -1184,6 +1219,13 @@ document.getElementById("shareLink").addEventListener("click", function(){
     navigator.clipboard.writeText(url).then(function(){ reveal("Link copied"); },
       function(){ box.hidden = false; box.select(); reveal("Copy it from below"); });
   } else { box.hidden = false; box.select(); reveal("Copy it from below"); }
+});
+
+// a link pasted into a tab already showing the page changes only the fragment
+window.addEventListener && window.addEventListener("hashchange", function(){
+  var s = fromHash();
+  if (!s) return;
+  S = s; clearHash(); syncControls(); clearPreset(); onChange();
 });
 
 document.getElementById("resetAll").addEventListener("click", function(){

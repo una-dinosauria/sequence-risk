@@ -85,5 +85,21 @@ for (let y = 0; y < flexed.N; y++) {
 }
 ok("flexed path returns replay the trajectory", ferr < 1e-12, "max rel. error " + ferr.toExponential(2));
 
+// 8. each lifetime keeps its own market history when the horizon changes, so
+//    a traced lifetime replays the same luck and the tornado compares like with like
+const sameStart = (A, B, label) => {
+  const a = t.simulate(A, 300, 7), b = t.simulate(B, 300, 7), n = Math.min(a.N, b.N);
+  let diff = 0;
+  for (const pp of [0, 1, 150, 299]) {
+    const ra = t.pathReturns(a, pp), rb = t.pathReturns(b, pp);
+    for (let y = 0; y < n; y++) if (isFinite(ra[y]) && isFinite(rb[y]) && Math.abs(ra[y] - rb[y]) > 1e-12) diff++;
+  }
+  ok("lifetimes keep their returns when " + label, diff === 0, diff + " year(s) differ");
+};
+sameStart(S, Object.assign({}, S, { planAge: 94 }), "the plan age changes");
+sameStart(S, Object.assign({}, S, { youAge: 45, pAge: 45 }), "today's ages change");
+sameStart(Object.assign({}, S, { fatTails: true }), Object.assign({}, S, { fatTails: true, planAge: 101 }),
+  "the horizon changes under fat tails");
+
 console.log(bad ? "\n" + bad + " check(s) failed" : "\nall checks passed");
 process.exit(bad ? 1 : 0);

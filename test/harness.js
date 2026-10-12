@@ -35,10 +35,15 @@ global.window = { performance: { now: () => Date.now() } };
 global.ResizeObserver = undefined;
 
 const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
-const src = html.match(/<script>([\s\S]*)<\/script>/)[1].replace(
-  "})();\n",
+// Tests that need a URL (shared links) set global.location before requiring this.
+global.history = global.history || { replaceState(){} };
+// Expose the internals just before the closing of the page's outer function —
+// the last "})();", since the script contains smaller ones before it.
+const body = html.match(/<script>([\s\S]*)<\/script>/)[1];
+const end = body.lastIndexOf("})();");
+const src = body.slice(0, end) +
   "globalThis.__t={simulate,analyse,precompute,afterTaxIncome,mortgageSchedule,logParams," +
-  "solveSafeSpend,successOnly,sensitivity,money,q,pathTrajectory,pathReturns,pickPath,clamp,get S(){return S}};\n})();\n"
-);
+  "solveSafeSpend,successOnly,sensitivity,money,q,pathTrajectory,pathReturns,pickPath,clamp,merge," +
+  "get S(){return S}};\n" + body.slice(end);
 eval(src);
 module.exports = globalThis.__t;
