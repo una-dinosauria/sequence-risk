@@ -30,7 +30,8 @@ global.document = {
   querySelector: () => new El("div"),
   querySelectorAll: () => []
 };
-global.localStorage = { getItem: () => null, setItem: () => {} };
+// tests that check persistence install their own localStorage first
+global.localStorage = global.localStorage || { getItem: () => null, setItem: () => {} };
 global.window = { performance: { now: () => Date.now() } };
 global.ResizeObserver = undefined;
 
@@ -43,7 +44,8 @@ const body = html.match(/<script>([\s\S]*)<\/script>/)[1];
 const end = body.lastIndexOf("})();");
 const src = body.slice(0, end) +
   "globalThis.__t={simulate,analyse,precompute,afterTaxIncome,mortgageSchedule,logParams," +
-  "solveSafeSpend,successOnly,sensitivity,money,q,pathTrajectory,pathReturns,pickPath,clamp,merge," +
+  "solveSafeSpend,successOnly,sensitivity,money,q,pathTrajectory,pathReturns,pickPath,clamp,merge,applyPreset,onChange," +
+  "get activePreset(){return activePreset},get mine(){return mine}," +
   "get S(){return S}};\n" + body.slice(end);
 eval(src);
 module.exports = globalThis.__t;

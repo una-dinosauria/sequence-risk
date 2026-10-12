@@ -68,6 +68,7 @@ Real (inflation-adjusted) dollars throughout, so nothing needs mental deflating.
 ```
 node test/model.js    # distributional and invariance checks
 node test/state.js    # shared links and saved state are checked before use
+node test/presets.js  # scenario buttons layer over your own numbers
 node test/smoke.js    # tax, cash-flow plan, and one full run
 node test/perf.js     # timings against the interactive budget
 ```

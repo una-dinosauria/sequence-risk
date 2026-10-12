@@ -953,7 +953,21 @@ function fromHash(){
     return merge(JSON.parse(decodeURIComponent(escape(atob(b)))));
   } catch(e){ return null; }
 }
-function save(){ try { localStorage.setItem("seqrisk.v1", JSON.stringify(S)); } catch(e){} }
+function save(){
+  try {
+    localStorage.setItem("seqrisk.v1", JSON.stringify(S));
+    localStorage.setItem("seqrisk.v1.preset",
+      JSON.stringify(activePreset ? { i: activePreset, mine: mine, keys: presetKeys } : null));
+  } catch(e){}
+}
+function restorePreset(){
+  try {
+    var p = JSON.parse(localStorage.getItem("seqrisk.v1.preset"));
+    if (!p || !(p.i > 0 && p.i < PRESETS.length) || !p.mine || !Array.isArray(p.keys)) return;
+    activePreset = p.i | 0; mine = merge(p.mine); presetView = clone(S);
+    presetKeys = p.keys.filter(function(k){ return Object.prototype.hasOwnProperty.call(DEFAULTS, k); });
+  } catch(e){}
+}
 function load(){
   try {
     var raw = localStorage.getItem("seqrisk.v1");
@@ -1020,17 +1034,31 @@ var FIELDS = [
     hint:"same seed, same futures" }
 ];
 
+// Presets are what-ifs laid over your own numbers, not replacements for them.
 var PRESETS = [
-  { name:"Base plan", set:{} },
-  { name:"Both retire at 55", set:{ youRetire:55, pRetire:55 } },
-  { name:"Stop today", set:{ youRetire:40, pRetire:40 } },
-  { name:"Spend $130k", set:{ spend:130000 } },
-  { name:"Kids + upsize", set:{ spend:112000, evOn:[0,1,2] } },
-  { name:"Rough century", set:{ realReturn:3.5, vol:19, fatTails:true, retTax:24 } },
-  { name:"Tighten in bad years", set:{ flex:true } }
+  { name:"My numbers" },
+  { name:"Both retire at 55", apply:function(s){ s.youRetire = 55; s.pRetire = 55; } },
+  { name:"Stop today", apply:function(s){ s.youRetire = s.youAge; s.pRetire = s.pAge; } },
+  { name:"Spend $130k", apply:function(s){ s.spend = 130000; } },
+  { name:"Kids + upsize", apply:function(s){ s.spend = Math.min(600000, s.spend + 22000); turnOnEvents(s, [0, 1, 2]); } },
+  { name:"Rough century", apply:function(s){ s.realReturn = 3.5; s.vol = 19; s.fatTails = true; s.retTax = 24; } },
+  { name:"Tighten in bad years", apply:function(s){ s.flex = true; } }
 ];
+// switch on the starting example's events by name, adding any you have removed
+function turnOnEvents(s, idx){
+  idx.forEach(function(i){
+    var d = DEFAULTS.events[i], have = s.events.filter(function(e){ return e.name === d.name; });
+    if (have.length) have.forEach(function(e){ e.on = true; });
+    else s.events.push(Object.assign(clone(d), { on: true }));
+  });
+}
 
 S = fromHash() || load() || clone(DEFAULTS);
+// While a preset is showing, `mine` holds your own numbers underneath it,
+// `presetKeys` the values the preset changed, and `presetView` the state as
+// last seen, so an edit can be told apart from the preset.
+var activePreset = 0, mine = null, presetKeys = [], presetView = null;
+if (!fromHash()) restorePreset();
 // Once a shared link has been read, drop it from the address bar: otherwise it
 // outranks localStorage, and a reload throws away every edit made since.
 function clearHash(){
@@ -1184,29 +1212,43 @@ document.getElementById("addEvent").addEventListener("click", function(){
 });
 
 /* ---------- presets ---------- */
-var activePreset = 0;
 function buildPresets(){
   var host = document.getElementById("presets");
   PRESETS.forEach(function(p, i){
     var b = document.createElement("button");
     b.type = "button"; b.className = "chip"; b.textContent = p.name;
-    b.setAttribute("aria-pressed", i === 0 ? "true" : "false");
-    b.addEventListener("click", function(){
-      var base = clone(DEFAULTS);
-      for (var k in p.set) if (k !== "evOn") base[k] = p.set[k];
-      if (p.set.evOn) p.set.evOn.forEach(function(idx){ if (base.events[idx]) base.events[idx].on = true; });
-      S = base;
-      activePreset = i;
-      Array.prototype.forEach.call(host.children, function(c, j){ c.setAttribute("aria-pressed", j === i ? "true" : "false"); });
-      applyingPreset = true; syncControls(); onChange(); applyingPreset = false;
-    });
+    b.setAttribute("aria-pressed", i === activePreset ? "true" : "false");
+    b.addEventListener("click", function(){ applyPreset(i); });
     host.appendChild(b);
   });
 }
-function clearPreset(){
+function highlightPreset(i){
   var host = document.getElementById("presets");
-  Array.prototype.forEach.call(host.children, function(c){ c.setAttribute("aria-pressed", "false"); });
+  Array.prototype.forEach.call(host.children, function(c, j){ c.setAttribute("aria-pressed", j === i ? "true" : "false"); });
 }
+function same(a, b){ return JSON.stringify(a) === JSON.stringify(b); }
+// Lay preset i over your own numbers; preset 0 takes it off again.
+function applyPreset(i){
+  if (!activePreset) mine = clone(S);
+  S = clone(mine);
+  if (PRESETS[i].apply) PRESETS[i].apply(S);
+  presetKeys = Object.keys(S).filter(function(k){ return !same(S[k], mine[k]); });
+  if (i === 0) mine = null;
+  activePreset = i; presetView = clone(S);
+  highlightPreset(i);
+  applyingPreset = true; syncControls(); onChange(); applyingPreset = false;
+}
+// An edit made while a preset is showing is yours, so it is copied into your
+// own numbers and survives leaving the preset. Editing a value the preset
+// itself set ends the preset instead: what is on screen becomes your numbers.
+function followEdit(){
+  if (!activePreset) return;
+  var changed = Object.keys(S).filter(function(k){ return !same(S[k], presetView[k]); });
+  if (changed.some(function(k){ return presetKeys.indexOf(k) >= 0; })){ leavePresets(); return; }
+  changed.forEach(function(k){ mine[k] = clone(S[k]); });
+  presetView = clone(S);
+}
+function leavePresets(){ activePreset = 0; mine = null; presetKeys = []; presetView = null; highlightPreset(0); }
 document.getElementById("shareLink").addEventListener("click", function(){
   var btn = this, box = document.getElementById("shareBox");
   var url = location.href.split("#")[0] + "#s=" + encodeHash();
@@ -1225,13 +1267,11 @@ document.getElementById("shareLink").addEventListener("click", function(){
 window.addEventListener && window.addEventListener("hashchange", function(){
   var s = fromHash();
   if (!s) return;
-  S = s; clearHash(); syncControls(); clearPreset(); onChange();
+  S = s; clearHash(); leavePresets(); syncControls(); onChange();
 });
 
 document.getElementById("resetAll").addEventListener("click", function(){
-  S = clone(DEFAULTS); syncControls(); clearPreset();
-  document.getElementById("presets").children[0].setAttribute("aria-pressed", "true");
-  applyingPreset = true; onChange(); applyingPreset = false;
+  S = clone(DEFAULTS); leavePresets(); syncControls(); onChange();
 });
 
 /* ============================================================
@@ -2031,7 +2071,7 @@ function scheduleSlow(){
   }, 280);
 }
 function onChange(){
-  if (!applyingPreset) clearPreset();
+  if (!applyingPreset) followEdit();
   save();
   render();
   scheduleSlow();
